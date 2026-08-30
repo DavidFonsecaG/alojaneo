@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "../components/Layout";
@@ -12,11 +12,13 @@ import { cn } from "../lib/utils";
 import type { Room, TimelineStay } from "../types";
 
 // ── Geometry ─────────────────────────────────────────────────────────
-// Fixed pixel widths keep the lanes, the date header and the reservation
-// bars perfectly aligned: every column is DAY_W wide, so a bar's left/width
-// is just a multiple of it.
+// The day-column width is computed at runtime so the selected range fills
+// the card's width: every column shares one `dayW`, which keeps the lanes,
+// the date header and the reservation bars aligned. It only falls back to a
+// minimum (and horizontal scroll) when the range can't fit the screen.
 const LEFT_W = 184; // frozen room column
-const DAY_W = 116; // one day column
+const MIN_DAY_W = 52; // below this we scroll instead of shrinking (keeps the date on one line)
+const DEFAULT_DAY_W = 112; // used for the first paint, before the card is measured
 const ROW_H = 44; // one room lane
 const DAY_MS = 86_400_000;
 
@@ -51,14 +53,22 @@ function midnight(d: Date): Date {
 
 // Cheap vertical day gridlines: one right border per column, drawn as a
 // repeating background so an empty lane costs zero extra DOM.
-const gridBg = () =>
+const gridBg = (dayW: number) =>
   `repeating-linear-gradient(to right, transparent 0, transparent ${
-    DAY_W - 1
-  }px, hsl(var(--border)) ${DAY_W - 1}px, hsl(var(--border)) ${DAY_W}px)`;
+    dayW - 1
+  }px, hsl(var(--border)) ${dayW - 1}px, hsl(var(--border)) ${dayW}px)`;
 
 // Weekend + today column tints. Only the special columns get a div; plain
 // weekdays render nothing.
-function ColumnTints({ days, today }: { days: Date[]; today: Date }) {
+function ColumnTints({
+  days,
+  today,
+  dayW,
+}: {
+  days: Date[];
+  today: Date;
+  dayW: number;
+}) {
   return (
     <>
       {days.map((d, i) => {
@@ -72,7 +82,7 @@ function ColumnTints({ days, today }: { days: Date[]; today: Date }) {
               "absolute inset-y-0",
               isToday ? "bg-primary/10" : "bg-muted/40",
             )}
-            style={{ left: i * DAY_W, width: DAY_W }}
+            style={{ left: i * dayW, width: dayW }}
           />
         );
       })}
@@ -90,6 +100,20 @@ export function TimelinePage() {
 
   const [windowDays, setWindowDays] = useState(14);
   const [start, setStart] = useState<Date>(defaultStart);
+
+  // Measure the scroll card so the day columns can stretch to fill its width.
+  // A callback ref (re-runs when the card mounts after loading) plus a
+  // ResizeObserver keeps `containerW` in sync with layout and scrollbar changes.
+  const [containerW, setContainerW] = useState(0);
+  const roRef = useRef<ResizeObserver | null>(null);
+  const measureRef = useCallback((el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    if (!el) return;
+    const update = () => setContainerW(el.clientWidth);
+    update();
+    roRef.current = new ResizeObserver(update);
+    roRef.current.observe(el);
+  }, []);
 
   const days = useMemo(
     () =>
@@ -144,7 +168,13 @@ export function TimelinePage() {
     year: "numeric",
   })}`;
 
-  const bodyWidth = LEFT_W + windowDays * DAY_W;
+  // Stretch each day column to fill the card; only fall back to the minimum
+  // (which then scrolls horizontally) when the range can't fit the width.
+  const dayW =
+    containerW > 0
+      ? Math.max(MIN_DAY_W, (containerW - LEFT_W) / windowDays)
+      : DEFAULT_DAY_W;
+  const bodyWidth = LEFT_W + windowDays * dayW;
 
   function shift(dir: -1 | 1) {
     setStart((s) => midnight(new Date(s.getTime() + dir * windowDays * DAY_MS)));
@@ -222,7 +252,10 @@ export function TimelinePage() {
           </div>
         ) : (
           <>
-            <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card">
+            <div
+              ref={measureRef}
+              className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card"
+            >
               <div className="flex min-h-full flex-col" style={{ width: bodyWidth }}>
                 {/* Date header */}
                 <div className="sticky top-0 z-20 flex border-b border-border bg-card">
@@ -237,11 +270,11 @@ export function TimelinePage() {
                       <div
                         key={d.toISOString()}
                         className={cn(
-                          "shrink-0 border-r border-border px-2 py-2 text-xs",
+                          "shrink-0 whitespace-nowrap border-r border-border px-1 py-2 text-center text-xs leading-tight",
                           weekend && "bg-muted/40",
                           isToday && "bg-primary/10",
                         )}
-                        style={{ width: DAY_W }}
+                        style={{ width: dayW }}
                       >
                         <div className="text-muted-foreground">
                           {WEEKDAY[d.getDay()]}
@@ -275,7 +308,7 @@ export function TimelinePage() {
                       </div>
                       <div
                         className="bg-muted/25"
-                        style={{ width: windowDays * DAY_W }}
+                        style={{ width: windowDays * dayW }}
                       />
                     </div>
 
@@ -300,9 +333,6 @@ export function TimelinePage() {
                           <span className="text-sm font-medium">
                             {room.room_number}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {room.room_type_name}
-                          </span>
                         </div>
 
                         {/* Lane */}
@@ -312,6 +342,7 @@ export function TimelinePage() {
                           days={days}
                           start={start}
                           today={today}
+                          dayW={dayW}
                           onOpen={(id) => navigate(`/reservations/${id}`)}
                         />
                       </div>
@@ -329,9 +360,9 @@ export function TimelinePage() {
                   />
                   <div
                     className="relative flex-1"
-                    style={{ backgroundImage: gridBg() }}
+                    style={{ backgroundImage: gridBg(dayW) }}
                   >
-                    <ColumnTints days={days} today={today} />
+                    <ColumnTints days={days} today={today} dayW={dayW} />
                   </div>
                 </div>
               </div>
@@ -352,6 +383,7 @@ function Lane({
   days,
   start,
   today,
+  dayW,
   onOpen,
 }: {
   room: Room;
@@ -359,6 +391,7 @@ function Lane({
   days: Date[];
   start: Date;
   today: Date;
+  dayW: number;
   onOpen: (reservationId: string) => void;
 }) {
   const windowDays = days.length;
@@ -368,16 +401,16 @@ function Lane({
   return (
     <div
       className="relative"
-      style={{ width: windowDays * DAY_W, backgroundImage: gridBg() }}
+      style={{ width: windowDays * dayW, backgroundImage: gridBg(dayW) }}
     >
-      <ColumnTints days={days} today={today} />
+      <ColumnTints days={days} today={today} dayW={dayW} />
 
       {/* Out-of-order / maintenance band across the whole window */}
       {outOfService && (
         <div
           className="absolute inset-y-1.5 left-1 flex items-center rounded-md border border-dashed border-border px-2 text-xs text-muted-foreground"
           style={{
-            width: windowDays * DAY_W - 8,
+            width: windowDays * dayW - 8,
             backgroundImage:
               "repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(100,116,139,0.12) 6px, rgba(100,116,139,0.12) 12px)",
           }}
@@ -391,14 +424,14 @@ function Lane({
         stays.map((s) => {
           const ci = parseApiDate(s.check_in);
           const co = parseApiDate(s.check_out);
-          const winPx = windowDays * DAY_W;
+          const winPx = windowDays * dayW;
           // Half-day convention: a stay starts at the middle of its check-in
           // day and ends at the middle of its check-out day. This leaves the
           // morning of the arrival day and the afternoon of the departure day
           // free, so the same room can be checked out and checked back in on
           // the same day and the two bars sit side by side, meeting mid-cell.
-          const rawLeft = (offset(ci) + 0.5) * DAY_W;
-          const rawRight = (offset(co) + 0.5) * DAY_W;
+          const rawLeft = (offset(ci) + 0.5) * dayW;
+          const rawRight = (offset(co) + 0.5) * dayW;
           const left = Math.max(0, rawLeft);
           const right = Math.min(winPx, rawRight);
           if (right <= left) return null; // outside this window
@@ -454,7 +487,7 @@ function Legend() {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
       {item("bg-blue-500", "Confirmed")}
-      {item("bg-emerald-500", "In house")}
+      {item("bg-emerald-500", "Check In")}
       {item("bg-slate-400", "Checked out")}
       <span className="text-border">|</span>
       {dot("bg-emerald-500", "Available")}

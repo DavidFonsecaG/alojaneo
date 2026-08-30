@@ -21,7 +21,7 @@ import type { ReservationSummaryStatus } from "../types";
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "All statuses" },
   { value: "confirmed", label: "Confirmed" },
-  { value: "checked_in", label: "In house" },
+  { value: "checked_in", label: "Check In" },
   { value: "checked_out", label: "Checked out" },
   { value: "cancelled", label: "Cancelled" },
 ];
