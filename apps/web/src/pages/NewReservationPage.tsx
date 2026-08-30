@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Trash2, BedDouble } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
@@ -16,6 +16,8 @@ import {
   nights,
   centsToInput,
   inputToCents,
+  toApiDate,
+  parseApiDate,
 } from "../lib/format";
 
 interface RoomLine {
@@ -33,6 +35,7 @@ const uid = () =>
 
 export function NewReservationPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const guests = useGuests();
   const rooms = useRooms();
   const ratePlans = useRatePlans();
@@ -130,6 +133,27 @@ export function NewReservationPage() {
       ),
     );
   }
+
+  // Prefill from the timeline's click-to-create: ?roomId&checkIn(&checkOut).
+  // Runs once, after rooms + rate plans have loaded so the room line gets its
+  // default rate plan and rate.
+  const prefilledRef = useRef(false);
+  useEffect(() => {
+    if (prefilledRef.current) return;
+    const roomId = searchParams.get("roomId");
+    const ci = searchParams.get("checkIn");
+    if (!roomId || !ci) return;
+    if (rooms.isLoading || ratePlans.isLoading) return;
+    if (!roomById.has(roomId)) return; // unknown / other-hotel room id
+    prefilledRef.current = true;
+    const co =
+      searchParams.get("checkOut") && searchParams.get("checkOut")! > ci
+        ? searchParams.get("checkOut")!
+        : toApiDate(new Date(parseApiDate(ci).getTime() + 86_400_000));
+    onDatesChange(ci, co);
+    addRoom(roomId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms.isLoading, ratePlans.isLoading, searchParams]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

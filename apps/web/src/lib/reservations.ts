@@ -70,6 +70,7 @@ export function useCreateReservation() {
       api.post<{ id: string }>("/reservations", input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reservations"] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
     },
   });
 }
@@ -98,6 +99,7 @@ export function useUpdateRoomStatus(reservationId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reservation", reservationId] });
       qc.invalidateQueries({ queryKey: ["reservations"] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
     },
   });
 }

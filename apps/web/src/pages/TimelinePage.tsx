@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/input";
@@ -9,6 +9,10 @@ import { useRooms } from "../lib/setup";
 import { useTimeline } from "../lib/reservations";
 import { parseApiDate, toApiDate } from "../lib/format";
 import { cn } from "../lib/utils";
+import {
+  QuickCreateDialog,
+  ReservationDetailDialog,
+} from "../components/TimelineDialogs";
 import type { Room, TimelineStay } from "../types";
 
 // ── Geometry ─────────────────────────────────────────────────────────
@@ -79,7 +83,7 @@ function ColumnTints({
           <div
             key={i}
             className={cn(
-              "absolute inset-y-0",
+              "pointer-events-none absolute inset-y-0",
               isToday ? "bg-primary/10" : "bg-muted/40",
             )}
             style={{ left: i * dayW, width: dayW }}
@@ -100,6 +104,14 @@ export function TimelinePage() {
 
   const [windowDays, setWindowDays] = useState(14);
   const [start, setStart] = useState<Date>(defaultStart);
+
+  // In-place popups: a bar opens its reservation; an empty cell starts one.
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [createFor, setCreateFor] = useState<{
+    room: Room;
+    checkIn: string;
+    checkOut: string;
+  } | null>(null);
 
   // Measure the scroll card so the day columns can stretch to fill its width.
   // A callback ref (re-runs when the card mounts after loading) plus a
@@ -343,7 +355,10 @@ export function TimelinePage() {
                           start={start}
                           today={today}
                           dayW={dayW}
-                          onOpen={(id) => navigate(`/reservations/${id}`)}
+                          onOpen={setDetailId}
+                          onCreate={(clickedRoom, checkIn, checkOut) =>
+                            setCreateFor({ room: clickedRoom, checkIn, checkOut })
+                          }
                         />
                       </div>
                     ))}
@@ -372,6 +387,21 @@ export function TimelinePage() {
           </>
         )}
       </div>
+
+      {detailId && (
+        <ReservationDetailDialog
+          id={detailId}
+          onClose={() => setDetailId(null)}
+        />
+      )}
+      {createFor && (
+        <QuickCreateDialog
+          room={createFor.room}
+          checkIn={createFor.checkIn}
+          checkOut={createFor.checkOut}
+          onClose={() => setCreateFor(null)}
+        />
+      )}
     </div>
   );
 }
@@ -385,6 +415,7 @@ function Lane({
   today,
   dayW,
   onOpen,
+  onCreate,
 }: {
   room: Room;
   stays: TimelineStay[];
@@ -393,17 +424,61 @@ function Lane({
   today: Date;
   dayW: number;
   onOpen: (reservationId: string) => void;
+  onCreate: (room: Room, checkIn: string, checkOut: string) => void;
 }) {
   const windowDays = days.length;
   const offset = (d: Date) => Math.round((d.getTime() - start.getTime()) / DAY_MS);
   const outOfService = room.status !== "available";
+  const laneRef = useRef<HTMLDivElement>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  // Which day column the pointer is over, or null when it's over a bar / off-lane.
+  const cellAt = (clientX: number): number | null => {
+    const el = laneRef.current;
+    if (!el) return null;
+    const idx = Math.floor((clientX - el.getBoundingClientRect().left) / dayW);
+    return idx >= 0 && idx < windowDays ? idx : null;
+  };
+
+  const onMove = (e: React.MouseEvent) => {
+    if (outOfService) return;
+    // Over a reservation bar → that cell is taken, no create affordance.
+    if ((e.target as HTMLElement).closest("button")) {
+      setHoverIdx(null);
+      return;
+    }
+    setHoverIdx(cellAt(e.clientX));
+  };
+
+  const onLaneClick = (e: React.MouseEvent) => {
+    if (outOfService) return;
+    const idx = cellAt(e.clientX);
+    if (idx === null) return;
+    const ci = days[idx];
+    const co = new Date(ci.getTime() + DAY_MS);
+    onCreate(room, toApiDate(ci), toApiDate(co));
+  };
 
   return (
     <div
-      className="relative"
+      ref={laneRef}
+      onMouseMove={onMove}
+      onMouseLeave={() => setHoverIdx(null)}
+      onClick={onLaneClick}
+      className={cn("relative", !outOfService && "cursor-pointer")}
       style={{ width: windowDays * dayW, backgroundImage: gridBg(dayW) }}
     >
       <ColumnTints days={days} today={today} dayW={dayW} />
+
+      {/* Hover affordance: a "+" cell inviting a new reservation on empty space */}
+      {hoverIdx !== null && (
+        <div
+          className="pointer-events-none absolute inset-y-1.5 flex items-center justify-center rounded-md border border-dashed border-primary/50 bg-primary/5 text-primary/70"
+          style={{ left: hoverIdx * dayW + 2, width: dayW - 4 }}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </div>
+      )}
 
       {/* Out-of-order / maintenance band across the whole window */}
       {outOfService && (
@@ -443,7 +518,10 @@ function Lane({
           return (
             <button
               key={s.id}
-              onClick={() => onOpen(s.reservation_id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen(s.reservation_id);
+              }}
               title={`${s.guest_first_name} ${s.guest_last_name} · Room ${s.room_number} · ${s.check_in.slice(
                 0,
                 10,
