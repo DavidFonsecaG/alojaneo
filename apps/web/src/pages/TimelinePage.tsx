@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
 import { CenteredSpinner } from "../components/ui/spinner";
@@ -19,7 +19,7 @@ import type { Room, TimelineStay } from "../types";
 // the card's width: every column shares one `dayW`, which keeps the lanes,
 // the date header and the reservation bars aligned. It only falls back to a
 // minimum (and horizontal scroll) when the range can't fit the screen.
-const LEFT_W = 184; // frozen room column
+const LEFT_W = 164; // frozen room column
 const MIN_DAY_W = 52; // below this we scroll instead of shrinking (keeps the date on one line)
 const DEFAULT_DAY_W = 112; // used for the first paint, before the card is measured
 const ROW_H = 44; // one room lane
@@ -293,18 +293,21 @@ export function TimelinePage() {
 
               {/* Time picker · date nav · Today */}
               <div className="ml-auto flex items-center gap-2">
-                <Select
-                  value={windowDays}
-                  onChange={(e) => setWindowDays(Number(e.target.value))}
-                  className="w-28 shadow-none"
-                  aria-label="Days shown"
-                >
-                  {WINDOWS.map((w) => (
-                    <option key={w} value={w}>
-                      {w} days
-                    </option>
-                  ))}
-                </Select>
+                <div className="relative">
+                  <Select
+                    value={windowDays}
+                    onChange={(e) => setWindowDays(Number(e.target.value))}
+                    className="w-28 appearance-none pr-8 shadow-none"
+                    aria-label="Days shown"
+                  >
+                    {WINDOWS.map((w) => (
+                      <option key={w} value={w}>
+                        {w} days
+                      </option>
+                    ))}
+                  </Select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
                 <Button
                   variant="outline"
                   size="icon"
