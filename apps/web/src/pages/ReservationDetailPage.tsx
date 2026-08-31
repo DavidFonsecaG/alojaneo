@@ -31,7 +31,7 @@ export function ReservationDetailPage() {
 
   if (isError || !data) {
     return (
-      <div className="p-8">
+      <div>
         <BackLink />
         <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {isError ? (error as Error).message : "Reservation not found."}
@@ -62,7 +62,7 @@ export function ReservationDetailPage() {
         }
       />
 
-      <div className="p-8">
+      <div>
         <BackLink />
 
         <div className="mt-4 grid gap-6 lg:grid-cols-3">

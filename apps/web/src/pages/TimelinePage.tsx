@@ -24,6 +24,7 @@ const LEFT_W = 184; // frozen room column
 const MIN_DAY_W = 52; // below this we scroll instead of shrinking (keeps the date on one line)
 const DEFAULT_DAY_W = 112; // used for the first paint, before the card is measured
 const ROW_H = 44; // one room lane
+const HEADER_H = 60; // date header lane — a touch taller than the room lanes
 const DAY_MS = 86_400_000;
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -196,7 +197,7 @@ export function TimelinePage() {
   const noRooms = !rooms.isLoading && (rooms.data ?? []).length === 0;
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-full flex-col gap-3">
       <PageHeader
         title="Timeline"
         description="Rooms down the side, stays across the days"
@@ -244,7 +245,7 @@ export function TimelinePage() {
         }
       />
 
-      <div className="flex min-h-0 flex-1 flex-col p-8">
+      <div className="flex min-h-0 flex-1 flex-col">
         {loading ? (
           <div className="flex flex-1 items-center justify-center">
             <CenteredSpinner label="Loading timeline…" />
@@ -266,11 +267,14 @@ export function TimelinePage() {
           <>
             <div
               ref={measureRef}
-              className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card"
+              className="min-h-0 flex-1 overflow-auto rounded-2xl border border-border bg-card shadow-sm"
             >
               <div className="flex min-h-full flex-col" style={{ width: bodyWidth }}>
                 {/* Date header */}
-                <div className="sticky top-0 z-20 flex border-b border-border bg-card">
+                <div
+                  className="sticky top-0 z-20 flex border-b border-border bg-card"
+                  style={{ height: HEADER_H }}
+                >
                   <div
                     className="sticky left-0 z-30 shrink-0 border-r border-border bg-card"
                     style={{ width: LEFT_W }}
@@ -282,19 +286,25 @@ export function TimelinePage() {
                       <div
                         key={d.toISOString()}
                         className={cn(
-                          "shrink-0 whitespace-nowrap border-r border-border px-1 py-2 text-center text-xs leading-tight",
+                          "flex shrink-0 flex-col justify-center whitespace-nowrap border-r border-border px-2 text-left text-xs leading-tight",
                           weekend && "bg-muted/40",
                           isToday && "bg-primary/10",
                         )}
                         style={{ width: dayW }}
                       >
-                        <div className="text-muted-foreground">
+                        <div
+                          className={cn(
+                            isToday
+                              ? "font-bold text-primary"
+                              : "text-muted-foreground",
+                          )}
+                        >
                           {WEEKDAY[d.getDay()]}
                         </div>
                         <div
                           className={cn(
                             "font-semibold",
-                            isToday && "text-primary",
+                            isToday && "font-bold text-primary",
                           )}
                         >
                           {d.toLocaleString("en-US", {

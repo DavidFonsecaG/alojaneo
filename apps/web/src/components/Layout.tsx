@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import {
   CalendarRange,
@@ -9,6 +10,8 @@ import {
   LogOut,
   ClipboardList,
   Hotel,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { cn } from "../lib/utils";
@@ -34,29 +37,76 @@ const NAV: NavItem[] = [
 export function Layout() {
   const { user, logout } = useAuth();
 
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("hrs.sidebar") === "collapsed",
+  );
+  const toggleSidebar = () =>
+    setCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem("hrs.sidebar", next ? "collapsed" : "expanded");
+      return next;
+    });
+
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card">
-        <div className="flex h-14 items-center gap-2 border-b border-border px-5">
-          <Hotel className="h-5 w-5 text-primary" />
-          <span className="font-semibold">HRS</span>
+    // Everything floats as cards on a single soft-gray canvas.
+    <div className="flex h-screen gap-3 bg-[#f4f4f4] p-3">
+      <aside
+        className={cn(
+          "flex shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-[width] duration-200 ease-in-out",
+          collapsed ? "w-[76px]" : "w-64",
+        )}
+      >
+        <div
+          className={cn(
+            "flex h-14 items-center border-b border-border px-3",
+            collapsed ? "justify-center" : "gap-2",
+          )}
+        >
+          {!collapsed && (
+            <>
+              <Hotel className="h-5 w-5 shrink-0 text-primary" />
+              <span className="font-semibold">HRS</span>
+            </>
+          )}
+          <button
+            onClick={toggleSidebar}
+            className={cn(
+              "rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+              !collapsed && "ml-auto",
+            )}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand" : "Collapse"}
+          >
+            {collapsed ? (
+              <ChevronsRight className="h-4 w-4" />
+            ) : (
+              <ChevronsLeft className="h-4 w-4" />
+            )}
+          </button>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {NAV.map((item) => {
             const Icon = item.icon;
             if (!item.enabled) {
               return (
                 <div
                   key={item.to}
-                  className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/60"
-                  title="Coming soon"
+                  className={cn(
+                    "flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/60",
+                    collapsed && "justify-center px-0",
+                  )}
+                  title={collapsed ? `${item.label} (coming soon)` : "Coming soon"}
                 >
-                  <Icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                  <span className="ml-auto text-[10px] uppercase tracking-wide">
-                    Soon
-                  </span>
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span>{item.label}</span>
+                      <span className="ml-auto text-[10px] uppercase tracking-wide">
+                        Soon
+                      </span>
+                    </>
+                  )}
                 </div>
               );
             }
@@ -64,42 +114,53 @@ export function Layout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    collapsed && "justify-center px-0",
                     isActive
                       ? "bg-primary/10 text-primary"
                       : "text-foreground hover:bg-accent",
                   )
                 }
               >
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
+                <Icon className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
               </NavLink>
             );
           })}
         </nav>
 
-        <div className="border-t border-border p-3">
-          <div className="mb-2 px-2 text-xs text-muted-foreground">
-            Signed in as{" "}
-            <span className="font-medium capitalize text-foreground">
-              {user?.role}
-            </span>
-          </div>
+        <div
+          className={cn(
+            "border-t border-border p-3",
+            collapsed && "flex justify-center",
+          )}
+        >
+          {!collapsed && (
+            <div className="mb-2 px-2 text-xs text-muted-foreground">
+              Signed in as{" "}
+              <span className="font-medium capitalize text-foreground">
+                {user?.role}
+              </span>
+            </div>
+          )}
           <Button
             variant="ghost"
-            size="sm"
-            className="w-full justify-start"
+            size={collapsed ? "icon" : "sm"}
+            className={cn(!collapsed && "w-full justify-start")}
             onClick={logout}
+            title="Log out"
+            aria-label="Log out"
           >
             <LogOut className="h-4 w-4" />
-            Log out
+            {!collapsed && "Log out"}
           </Button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-x-hidden">
+      <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto">
         <Outlet />
       </main>
     </div>
@@ -116,7 +177,7 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border bg-card px-8 py-5">
+    <div className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-border bg-card px-8 py-5 shadow-sm">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         {description && (

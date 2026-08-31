@@ -59,7 +59,7 @@ export function ReservationsPage() {
         }
       />
 
-      <div className="p-8">
+      <div>
         {isLoading ? (
           <CenteredSpinner label="Loading reservations…" />
         ) : isError ? (

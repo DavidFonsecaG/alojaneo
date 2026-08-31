@@ -67,7 +67,7 @@ export function RatePlansPage() {
         }
       />
 
-      <div className="p-8">
+      <div>
         {ratePlans.isLoading ? (
           <CenteredSpinner label="Loading rate plans…" />
         ) : ratePlans.isError ? (
