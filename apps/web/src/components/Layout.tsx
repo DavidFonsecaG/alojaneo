@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { cn } from "../lib/utils";
-import { Button } from "./ui/button";
 
 interface NavItem {
   to: string;
@@ -52,20 +51,20 @@ export function Layout() {
     <div className="flex h-screen gap-3 bg-[#f4f4f4] p-3">
       <aside
         className={cn(
-          "flex shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-[width] duration-200 ease-in-out",
+          "flex shrink-0 flex-col overflow-hidden rounded-2xl bg-card shadow-sm transition-[width] duration-200 ease-in-out",
           collapsed ? "w-[76px]" : "w-64",
         )}
       >
         <div
           className={cn(
-            "flex h-14 items-center border-b border-border px-3",
+            "flex h-16 items-center px-4",
             collapsed ? "justify-center" : "gap-2",
           )}
         >
           {!collapsed && (
             <>
-              <Hotel className="h-5 w-5 shrink-0 text-primary" />
-              <span className="font-semibold">HRS</span>
+              <Hotel className="h-6 w-6 shrink-0 text-primary" />
+              <span className="text-lg font-semibold">HRS</span>
             </>
           )}
           <button
@@ -85,20 +84,26 @@ export function Layout() {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+        <nav className="flex-1 space-y-1.5 overflow-y-auto p-3">
           {NAV.map((item) => {
             const Icon = item.icon;
+            // Same height in both states; when collapsed each item is a
+            // square that shows only its icon.
+            const shape = collapsed
+              ? "mx-auto h-11 w-11 justify-center"
+              : "h-11 gap-3 px-3";
+            const base = cn(
+              "flex items-center rounded-lg text-[15px] font-medium transition-colors",
+              shape,
+            );
             if (!item.enabled) {
               return (
                 <div
                   key={item.to}
-                  className={cn(
-                    "flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/60",
-                    collapsed && "justify-center px-0",
-                  )}
+                  className={cn(base, "cursor-not-allowed text-muted-foreground/50")}
                   title={collapsed ? `${item.label} (coming soon)` : "Coming soon"}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
+                  <Icon className="h-5 w-5 shrink-0" />
                   {!collapsed && (
                     <>
                       <span>{item.label}</span>
@@ -117,15 +122,14 @@ export function Layout() {
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    collapsed && "justify-center px-0",
+                    base,
                     isActive
                       ? "bg-primary/10 text-primary"
                       : "text-foreground hover:bg-accent",
                   )
                 }
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                <Icon className="h-5 w-5 shrink-0" />
                 {!collapsed && <span>{item.label}</span>}
               </NavLink>
             );
@@ -146,21 +150,22 @@ export function Layout() {
               </span>
             </div>
           )}
-          <Button
-            variant="ghost"
-            size={collapsed ? "icon" : "sm"}
-            className={cn(!collapsed && "w-full justify-start")}
+          <button
             onClick={logout}
             title="Log out"
             aria-label="Log out"
+            className={cn(
+              "flex items-center rounded-lg text-[15px] font-medium text-foreground transition-colors hover:bg-accent",
+              collapsed ? "h-11 w-11 justify-center" : "h-11 w-full gap-3 px-3",
+            )}
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-5 w-5 shrink-0" />
             {!collapsed && "Log out"}
-          </Button>
+          </button>
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto">
+      <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto pl-3 pt-3">
         <Outlet />
       </main>
     </div>

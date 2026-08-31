@@ -4,6 +4,8 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./lib/auth";
 import { App } from "./App";
+// Self-hosted Inter (variable weight axis) — bundled by Vite, no external requests.
+import "@fontsource-variable/inter";
 import "./index.css";
 
 const queryClient = new QueryClient({

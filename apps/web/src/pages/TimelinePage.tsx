@@ -1,9 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { PageHeader } from "../components/Layout";
+import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
 import { Button } from "../components/ui/button";
-import { Select } from "../components/ui/input";
+import { Input, Select } from "../components/ui/input";
 import { CenteredSpinner } from "../components/ui/spinner";
 import { useRooms } from "../lib/setup";
 import { useTimeline } from "../lib/reservations";
@@ -45,6 +44,13 @@ const ROOM_DOT: Record<string, string> = {
 };
 
 const WINDOWS = [7, 14, 30];
+
+// Room operational statuses, shown as filter pills in the header.
+const STATUS_FILTERS: { key: string; label: string; dot: string }[] = [
+  { key: "available", label: "Available", dot: "bg-emerald-500" },
+  { key: "maintenance", label: "Maintenance", dot: "bg-amber-500" },
+  { key: "out_of_order", label: "Out of order", dot: "bg-red-500" },
+];
 
 interface RoomGroup {
   typeId: string;
@@ -114,6 +120,19 @@ export function TimelinePage() {
     checkOut: string;
   } | null>(null);
 
+  // Header filters: search by room number/type, and by operational status.
+  const [roomQuery, setRoomQuery] = useState("");
+  const [statuses, setStatuses] = useState<Set<string>>(
+    () => new Set(STATUS_FILTERS.map((f) => f.key)),
+  );
+  const toggleStatus = (key: string) =>
+    setStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
   // Measure the scroll card so the day columns can stretch to fill its width.
   // A callback ref (re-runs when the card mounts after loading) plus a
   // ResizeObserver keeps `containerW` in sync with layout and scrollbar changes.
@@ -145,8 +164,15 @@ export function TimelinePage() {
   // Rooms grouped by type, groups ordered by type name, rooms by number
   // (the API already returns them number-ordered).
   const groups = useMemo<RoomGroup[]>(() => {
+    const q = roomQuery.trim().toLowerCase();
+    const matches = (r: Room) =>
+      statuses.has(r.status) &&
+      (q === "" ||
+        r.room_number.toLowerCase().includes(q) ||
+        (r.room_type_name ?? "").toLowerCase().includes(q));
     const byType = new Map<string, RoomGroup>();
     for (const r of rooms.data ?? []) {
+      if (!matches(r)) continue;
       const key = r.room_type_id;
       let g = byType.get(key);
       if (!g) {
@@ -158,7 +184,7 @@ export function TimelinePage() {
     return [...byType.values()].sort((a, b) =>
       a.typeName.localeCompare(b.typeName),
     );
-  }, [rooms.data]);
+  }, [rooms.data, roomQuery, statuses]);
 
   // Stays bucketed by room for O(1) lane lookup.
   const staysByRoom = useMemo(() => {
@@ -198,77 +224,118 @@ export function TimelinePage() {
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <PageHeader
-        title="Timeline"
-        description="Rooms down the side, stays across the days"
-        actions={
-          <div className="flex items-center gap-2">
-            <Select
-              value={windowDays}
-              onChange={(e) => setWindowDays(Number(e.target.value))}
-              className="w-28"
-              aria-label="Days shown"
-            >
-              {WINDOWS.map((w) => (
-                <option key={w} value={w}>
-                  {w} days
-                </option>
-              ))}
-            </Select>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => shift(-1)}
-              aria-label="Previous"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="w-44 text-center text-sm font-medium">
-              {rangeLabel}
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => shift(1)}
-              aria-label="Next"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setStart(defaultStart)}
-            >
-              Today
-            </Button>
-          </div>
-        }
-      />
+      {/* Title sits directly on the canvas, not in a card */}
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">Timeline</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Rooms down the side, stays across the days
+        </p>
+      </div>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        {loading ? (
-          <div className="flex flex-1 items-center justify-center">
-            <CenteredSpinner label="Loading timeline…" />
-          </div>
-        ) : noRooms ? (
-          <div className="flex flex-1 items-center justify-center">
-            <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-              No rooms yet. Add rooms on the{" "}
-              <button
-                className="font-medium text-primary hover:underline"
-                onClick={() => navigate("/rooms")}
-              >
-                Rooms
-              </button>{" "}
-              page to see them here.
-            </div>
-          </div>
-        ) : (
-          <>
-            <div
-              ref={measureRef}
-              className="min-h-0 flex-1 overflow-auto rounded-2xl border border-border bg-card shadow-sm"
+      {loading ? (
+        <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
+          <CenteredSpinner label="Loading timeline…" />
+        </div>
+      ) : noRooms ? (
+        <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            No rooms yet. Add rooms on the{" "}
+            <button
+              className="font-medium text-primary hover:underline"
+              onClick={() => navigate("/rooms")}
             >
+              Rooms
+            </button>{" "}
+            page to see them here.
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
+            {/* Controls — the card header under the title */}
+            <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+              {/* Search rooms */}
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={roomQuery}
+                  onChange={(e) => setRoomQuery(e.target.value)}
+                  placeholder="Search rooms…"
+                  aria-label="Search rooms"
+                  className="h-9 w-44 pl-8 shadow-none"
+                />
+              </div>
+
+              {/* Room-status filters */}
+              <div className="flex items-center gap-1.5">
+                {STATUS_FILTERS.map((f) => {
+                  const on = statuses.has(f.key);
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => toggleStatus(f.key)}
+                      aria-pressed={on}
+                      title={on ? `Hide ${f.label}` : `Show ${f.label}`}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                        on
+                          ? "border-border text-foreground hover:bg-accent"
+                          : "border-transparent text-muted-foreground/50 hover:text-muted-foreground",
+                      )}
+                    >
+                      <span className={cn("h-2 w-2 rounded-full", f.dot)} />
+                      {f.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Time picker · date nav · Today */}
+              <div className="ml-auto flex items-center gap-2">
+                <Select
+                  value={windowDays}
+                  onChange={(e) => setWindowDays(Number(e.target.value))}
+                  className="w-28 shadow-none"
+                  aria-label="Days shown"
+                >
+                  {WINDOWS.map((w) => (
+                    <option key={w} value={w}>
+                      {w} days
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => shift(-1)}
+                  aria-label="Previous"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="w-44 text-center text-sm font-medium">
+                  {rangeLabel}
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => shift(1)}
+                  aria-label="Next"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="default"
+                  onClick={() => setStart(defaultStart)}
+                >
+                  Today
+                </Button>
+              </div>
+            </div>
+
+            {/* Calendar */}
+            <div ref={measureRef} className="min-h-0 flex-1 overflow-auto">
               <div className="flex min-h-full flex-col" style={{ width: bodyWidth }}>
                 {/* Date header */}
                 <div
@@ -352,7 +419,7 @@ export function TimelinePage() {
                             )}
                             title={room.status.replace("_", " ")}
                           />
-                          <span className="text-sm font-medium">
+                          <span className="text-sm font-bold">
                             {room.room_number}
                           </span>
                         </div>
@@ -392,11 +459,11 @@ export function TimelinePage() {
                 </div>
               </div>
             </div>
+          </div>
 
-            <Legend />
-          </>
-        )}
-      </div>
+          <Legend />
+        </>
+      )}
 
       {detailId && (
         <ReservationDetailDialog
@@ -566,21 +633,11 @@ function Legend() {
       <span className="text-muted-foreground">{label}</span>
     </div>
   );
-  const dot = (cls: string, label: string) => (
-    <div className="flex items-center gap-1.5">
-      <span className={cn("h-2 w-2 rounded-full", cls)} />
-      <span className="text-muted-foreground">{label}</span>
-    </div>
-  );
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
       {item("bg-blue-500", "Confirmed")}
       {item("bg-emerald-500", "Check In")}
       {item("bg-slate-400", "Checked out")}
-      <span className="text-border">|</span>
-      {dot("bg-emerald-500", "Available")}
-      {dot("bg-amber-500", "Maintenance")}
-      {dot("bg-red-500", "Out of order")}
     </div>
   );
 }
