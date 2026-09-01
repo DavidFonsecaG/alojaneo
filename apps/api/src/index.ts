@@ -8,6 +8,7 @@ import { reservationRoutes } from "./routes/reservations.js";
 import { paymentRoutes } from "./routes/payments.js";
 import { housekeepingRoutes } from "./routes/housekeeping.js";
 import { hotelSettingsRoutes } from "./routes/hotelSettings.js";
+import { dashboardRoutes } from "./routes/dashboard.js";
 import { publicBookingRoutes } from "./routes/publicBooking.js";
 
 export function buildApp() {
@@ -28,6 +29,7 @@ export function buildApp() {
   app.register(paymentRoutes);
   app.register(housekeepingRoutes);
   app.register(hotelSettingsRoutes);
+  app.register(dashboardRoutes);
 
   return app;
 }

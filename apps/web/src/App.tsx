@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
+import { DashboardPage } from "./pages/DashboardPage";
 import { ReservationsPage } from "./pages/ReservationsPage";
 import { NewReservationPage } from "./pages/NewReservationPage";
 import { ReservationDetailPage } from "./pages/ReservationDetailPage";
@@ -17,7 +18,8 @@ export function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route index element={<Navigate to="/reservations" replace />} />
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/reservations" element={<ReservationsPage />} />
           <Route path="/reservations/new" element={<NewReservationPage />} />
           <Route
@@ -31,7 +33,7 @@ export function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/reservations" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

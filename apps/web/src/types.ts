@@ -144,3 +144,48 @@ export interface RatePlan {
   valid_to: string | null;
   created_at: string;
 }
+
+// ── Dashboard ────────────────────────────────────────────────────────
+export interface DashboardArrival {
+  reservation_id: string;
+  first_name: string;
+  last_name: string;
+  check_in: string;
+  status: ReservationRoomStatus;
+  room_number: string;
+  room_type_name: string;
+}
+
+export interface DashboardStatusEvent {
+  created_at: string;
+  new_status: ReservationRoomStatus;
+  room_number: string;
+  first_name: string;
+  last_name: string;
+}
+
+export interface DashboardBooking {
+  created_at: string;
+  first_name: string;
+  last_name: string;
+}
+
+export interface DashboardData {
+  roomStatus: { total: number; occupied: number; available: number };
+  arrivingToday: DashboardArrival[];
+  recentStatusEvents: DashboardStatusEvent[];
+  recentBookings: DashboardBooking[];
+}
+
+export type OccupancySpan = "day" | "week" | "month";
+
+export interface OccupancyPoint {
+  date: string;
+  occupied: number;
+}
+
+export interface OccupancyData {
+  total: number;
+  span: OccupancySpan;
+  series: OccupancyPoint[];
+}
