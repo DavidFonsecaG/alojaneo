@@ -76,10 +76,19 @@ export async function reservationRoutes(app: FastifyInstance) {
           }
         }
 
+        // Advance the hotel's booking counter atomically (row lock) and use
+        // it as this reservation's human-friendly reference.
+        const [{ booking_seq }] = await tx`
+          update hotels set booking_seq = booking_seq + 1
+          where id = ${req.hotelId}
+          returning booking_seq
+        `;
+        const bookingRef = `BK-${booking_seq}`;
+
         const [reservation] = await tx`
-          insert into reservations (hotel_id, guest_id, total_amount_cents, source, created_by)
-          values (${req.hotelId}, ${body.guestId}, ${totalAmountCents}, ${source}, ${req.userId})
-          returning id, hotel_id, guest_id, total_amount_cents, source, created_by, created_at
+          insert into reservations (hotel_id, guest_id, total_amount_cents, source, created_by, booking_ref)
+          values (${req.hotelId}, ${body.guestId}, ${totalAmountCents}, ${source}, ${req.userId}, ${bookingRef})
+          returning id, hotel_id, guest_id, total_amount_cents, source, created_by, created_at, booking_ref
         `;
 
         const rooms = await Promise.all(
@@ -147,12 +156,7 @@ export async function reservationRoutes(app: FastifyInstance) {
       return tx`
         select
           r.id,
-          'BK-' || (
-            1000 + (
-              select count(*) from reservations r2
-              where (r2.created_at, r2.id) <= (r.created_at, r.id)
-            )
-          ) as booking_ref,
+          r.booking_ref,
           r.guest_id,
           r.total_amount_cents,
           r.source,
@@ -228,12 +232,7 @@ export async function reservationRoutes(app: FastifyInstance) {
       const [reservation] = await tx`
         select
           r.id,
-          'BK-' || (
-            1000 + (
-              select count(*) from reservations r2
-              where (r2.created_at, r2.id) <= (r.created_at, r.id)
-            )
-          ) as booking_ref,
+          r.booking_ref,
           r.guest_id,
           r.total_amount_cents,
           r.source,

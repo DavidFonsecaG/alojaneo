@@ -226,11 +226,19 @@ export async function publicBookingRoutes(app: FastifyInstance) {
         0,
       );
 
+      // Advance the hotel's booking counter and use it as the reference.
+      const [{ booking_seq }] = await tx`
+        update hotels set booking_seq = booking_seq + 1
+        where id = ${hotelId}
+        returning booking_seq
+      `;
+      const bookingRef = `BK-${booking_seq}`;
+
       // Create the reservation
       const [reservation] = await tx`
-        insert into reservations (hotel_id, guest_id, total_amount_cents, currency, source)
-        values (${hotelId}, ${guest.id}, ${totalAmountCents}, ${hotel.currency ?? 'USD'}, 'direct_booking')
-        returning id, hotel_id, guest_id, total_amount_cents, currency, source, created_at
+        insert into reservations (hotel_id, guest_id, total_amount_cents, currency, source, booking_ref)
+        values (${hotelId}, ${guest.id}, ${totalAmountCents}, ${hotel.currency ?? 'USD'}, 'direct_booking', ${bookingRef})
+        returning id, hotel_id, guest_id, total_amount_cents, currency, source, created_at, booking_ref
       `;
 
       // Create reservation_rooms for each assigned room

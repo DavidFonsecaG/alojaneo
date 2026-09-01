@@ -35,6 +35,7 @@ psql -d hotel_dev -f packages/db/src/migrations/0001_init.sql
 psql -d hotel_dev -f packages/db/src/migrations/0002_extend_schema.sql
 psql -d hotel_dev -f packages/db/src/migrations/0003_enhance_schema.sql
 psql -d hotel_dev -f packages/db/src/migrations/0004_prevent_double_booking.sql
+psql -d hotel_dev -f packages/db/src/migrations/0005_booking_ref.sql
 ```
 
 ## Architecture
@@ -73,7 +74,9 @@ Reservations are "folders" — status, check_in, and check_out live on `reservat
 
 Drizzle-kit is configured (`packages/db/drizzle.config.ts`). The hand-written migrations (`0001_init.sql`, `0002_extend_schema.sql`, `0003_enhance_schema.sql`) remain authoritative for schema + RLS since drizzle-kit doesn't manage RLS policies.
 
-Tables: `hotels` (tenant + settings), `users`, `hotel_users` (membership + role + permissions), `room_types`, `rooms` (with housekeeping_status), `rate_plans` (with cancellation_policy, bookable_online), `rate_overrides`, `guests`, `reservations`, `reservation_rooms` (with per-room dates + status), `reservation_notes`, `reservation_status_history`, `housekeeping_tasks`, `payments`.
+Tables: `hotels` (tenant + settings + `booking_seq` counter), `users`, `hotel_users` (membership + role + permissions), `room_types`, `rooms` (with housekeeping_status), `rate_plans` (with cancellation_policy, bookable_online), `rate_overrides`, `guests`, `reservations` (with `booking_ref`), `reservation_rooms` (with per-room dates + status), `reservation_notes`, `reservation_status_history`, `housekeeping_tasks`, `payments`.
+
+**Booking reference (`BK-####`):** Migration `0005_booking_ref.sql` adds `hotels.booking_seq` (a per-hotel counter, default 1000) and `reservations.booking_ref` (unique per hotel). Both create paths (`reservations.ts`, `publicBooking.ts`) bump the counter with `update hotels set booking_seq = booking_seq + 1 ... returning booking_seq` inside the create transaction (the row lock serialises concurrent bookings) and store `BK-<seq>`. It's read straight from the column in list/detail/dashboard queries.
 
 RLS is on all tenant-scoped tables. `reservation_rooms`, `reservation_notes`, `reservation_status_history`, and `rate_overrides` use transitive isolation via FK to their parent RLS-protected tables.
 

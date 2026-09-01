@@ -59,12 +59,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       const arrivingToday = await tx`
         select
           r.id as reservation_id,
-          'BK-' || (
-            1000 + (
-              select count(*) from reservations r2
-              where (r2.created_at, r2.id) <= (r.created_at, r.id)
-            )
-          ) as booking_ref,
+          r.booking_ref,
           g.first_name,
           g.last_name,
           rr.check_in,
