@@ -89,8 +89,13 @@ export function ReservationsPage() {
                     className="cursor-pointer"
                     onClick={() => navigate(`/reservations/${r.id}`)}
                   >
-                    <TableCell className="font-medium">
-                      {r.guest_first_name} {r.guest_last_name}
+                    <TableCell>
+                      <div className="font-medium">
+                        {r.guest_first_name} {r.guest_last_name}
+                      </div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {r.booking_ref}
+                      </div>
                     </TableCell>
                     <TableCell>{formatDate(r.check_in)}</TableCell>
                     <TableCell>{formatDate(r.check_out)}</TableCell>

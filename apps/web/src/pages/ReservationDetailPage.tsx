@@ -49,7 +49,7 @@ export function ReservationDetailPage() {
     <>
       <PageHeader
         title={`${data.guest_first_name} ${data.guest_last_name}`}
-        description={`${data.rooms.length} room${data.rooms.length === 1 ? "" : "s"} · ${totalNights} room-night${totalNights === 1 ? "" : "s"} · ${data.source.replace(/_/g, " ")}`}
+        description={`${data.booking_ref} · ${data.rooms.length} room${data.rooms.length === 1 ? "" : "s"} · ${totalNights} room-night${totalNights === 1 ? "" : "s"} · ${data.source.replace(/_/g, " ")}`}
         actions={
           <div className="text-right">
             <div className="text-xs uppercase tracking-wide text-muted-foreground">

@@ -36,6 +36,7 @@ export interface SignupResponse {
 // GET /reservations — one row per reservation "folder".
 export interface ReservationListItem {
   id: string;
+  booking_ref: string;
   guest_id: string;
   total_amount_cents: number | null;
   source: string;
@@ -88,6 +89,7 @@ export interface ReservationNote {
 // GET /reservations/:id
 export interface ReservationDetail {
   id: string;
+  booking_ref: string;
   guest_id: string;
   total_amount_cents: number | null;
   source: string;
@@ -148,6 +150,7 @@ export interface RatePlan {
 // ── Dashboard ────────────────────────────────────────────────────────
 export interface DashboardArrival {
   reservation_id: string;
+  booking_ref: string;
   first_name: string;
   last_name: string;
   check_in: string;

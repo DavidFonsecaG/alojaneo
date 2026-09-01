@@ -271,8 +271,13 @@ function ArrivingTodayCard({
                   key={`${r.reservation_id}-${r.room_number}`}
                   className="border-t border-border"
                 >
-                  <td className="py-2.5 font-medium">
-                    {r.first_name} {r.last_name}
+                  <td className="py-2.5">
+                    <div className="font-medium">
+                      {r.first_name} {r.last_name}
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {r.booking_ref}
+                    </div>
                   </td>
                   <td className="py-2.5">{r.room_number}</td>
                   <td className="py-2.5 text-muted-foreground">

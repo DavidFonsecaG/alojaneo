@@ -147,6 +147,12 @@ export async function reservationRoutes(app: FastifyInstance) {
       return tx`
         select
           r.id,
+          'BK-' || (
+            1000 + (
+              select count(*) from reservations r2
+              where (r2.created_at, r2.id) <= (r.created_at, r.id)
+            )
+          ) as booking_ref,
           r.guest_id,
           r.total_amount_cents,
           r.source,
@@ -222,6 +228,12 @@ export async function reservationRoutes(app: FastifyInstance) {
       const [reservation] = await tx`
         select
           r.id,
+          'BK-' || (
+            1000 + (
+              select count(*) from reservations r2
+              where (r2.created_at, r2.id) <= (r.created_at, r.id)
+            )
+          ) as booking_ref,
           r.guest_id,
           r.total_amount_cents,
           r.source,
