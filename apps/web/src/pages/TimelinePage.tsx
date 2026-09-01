@@ -463,8 +463,6 @@ export function TimelinePage() {
               </div>
             </div>
           </div>
-
-          <Legend />
         </>
       )}
 
@@ -624,23 +622,6 @@ function Lane({
             </button>
           );
         })}
-    </div>
-  );
-}
-
-// ── Legend ───────────────────────────────────────────────────────────
-function Legend() {
-  const item = (cls: string, label: string) => (
-    <div className="flex items-center gap-1.5">
-      <span className={cn("h-2.5 w-4 rounded-sm", cls)} />
-      <span className="text-muted-foreground">{label}</span>
-    </div>
-  );
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
-      {item("bg-blue-500", "Confirmed")}
-      {item("bg-emerald-500", "Check In")}
-      {item("bg-slate-400", "Checked out")}
     </div>
   );
 }
