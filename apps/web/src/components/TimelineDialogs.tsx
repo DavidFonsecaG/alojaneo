@@ -485,6 +485,7 @@ export function ReservationDetailDialog({
             )} · ${data.source.replace(/_/g, " ")}`
           : undefined
       }
+      className="max-w-2xl"
     >
       {isLoading ? (
         <div className="py-8">
