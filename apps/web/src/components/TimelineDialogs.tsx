@@ -487,6 +487,16 @@ export function ReservationDetailDialog({
         </div>
       ) : (
         <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+          {/* Reservation ID */}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Reservation ID
+            </span>
+            <span className="select-all break-all font-mono text-xs font-medium text-foreground">
+              {data.id}
+            </span>
+          </div>
+
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Rooms
