@@ -105,6 +105,34 @@ export function useUpdateRoomStatus(reservationId: string) {
   });
 }
 
+export function useUpdateRoomDetails(reservationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      roomId,
+      checkIn,
+      checkOut,
+      rateCents,
+    }: {
+      roomId: string;
+      checkIn: string;
+      checkOut: string;
+      rateCents: number;
+    }) =>
+      api.patch<ReservationRoom>(`/reservation-rooms/${roomId}`, {
+        checkIn,
+        checkOut,
+        rateCents,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reservation", reservationId] });
+      qc.invalidateQueries({ queryKey: ["reservations"] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 export function useAddNote(reservationId: string) {
   const qc = useQueryClient();
   return useMutation({

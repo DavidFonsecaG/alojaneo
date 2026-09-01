@@ -33,6 +33,16 @@ const updateRoomStatusSchema = z.object({
   ]),
 });
 
+const updateRoomDetailsSchema = z
+  .object({
+    checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    rateCents: z.number().int().nonnegative().optional(),
+  })
+  .refine((b) => b.checkIn || b.checkOut || b.rateCents !== undefined, {
+    message: "Provide at least one field to update",
+  });
+
 const createNoteSchema = z.object({
   body: z.string().min(1),
 });
@@ -334,6 +344,96 @@ export async function reservationRoutes(app: FastifyInstance) {
     }
 
     return result;
+  });
+
+  // PATCH /reservation-rooms/:id — update a room-stay's dates and/or rate.
+  // Date changes are re-checked against the room's other active stays (the
+  // friendly pre-check), with the exclusion constraint as the real guard.
+  app.patch("/reservation-rooms/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = updateRoomDetailsSchema.parse(req.body);
+
+    try {
+      const result = await withTenant(req.hotelId, async (tx) => {
+        const [current] = await tx`
+          select
+            rr.id,
+            rr.reservation_id,
+            rr.room_id,
+            to_char(rr.check_in, 'YYYY-MM-DD') as check_in,
+            to_char(rr.check_out, 'YYYY-MM-DD') as check_out,
+            rr.rate_cents
+          from reservation_rooms rr
+          join reservations r on r.id = rr.reservation_id
+          where rr.id = ${id}
+        `;
+        if (!current) return null;
+
+        const checkIn = body.checkIn ?? current.check_in;
+        const checkOut = body.checkOut ?? current.check_out;
+        const rateCents = body.rateCents ?? current.rate_cents;
+
+        if (checkOut <= checkIn) {
+          throw Object.assign(new Error("Check-out must be after check-in."), {
+            statusCode: 400,
+          });
+        }
+
+        // Reject overlap with any OTHER active stay of the same room.
+        const [conflict] = await tx`
+          select 1
+          from reservation_rooms
+          where room_id = ${current.room_id}
+            and id <> ${id}
+            and status not in ('cancelled', 'no_show')
+            and check_in < ${checkOut}
+            and check_out > ${checkIn}
+          limit 1
+        `;
+        if (conflict) {
+          throw Object.assign(
+            new Error(`Room is not available for ${checkIn} to ${checkOut}`),
+            { statusCode: 409 },
+          );
+        }
+
+        const [updated] = await tx`
+          update reservation_rooms
+          set check_in = ${checkIn}, check_out = ${checkOut}, rate_cents = ${rateCents}
+          where id = ${id}
+          returning id, reservation_id, room_id, rate_plan_id, rate_cents, check_in, check_out, status, created_at
+        `;
+
+        // Keep the reservation total in sync with its room rates.
+        await tx`
+          update reservations
+          set total_amount_cents = (
+            select coalesce(sum(rate_cents), 0)
+            from reservation_rooms
+            where reservation_id = ${current.reservation_id}
+          )
+          where id = ${current.reservation_id}
+        `;
+
+        return updated;
+      });
+
+      if (!result) {
+        return reply.code(404).send({ error: "Reservation room not found" });
+      }
+      return result;
+    } catch (err) {
+      const code = (err as { statusCode?: number })?.statusCode;
+      if (code === 409 || code === 400) {
+        return reply.code(code).send({ error: (err as Error).message });
+      }
+      if ((err as { code?: string })?.code === "23P01") {
+        return reply.code(409).send({
+          error: "Room is no longer available for the selected dates",
+        });
+      }
+      throw err;
+    }
   });
 
   // POST /reservations/:id/notes — add a note to a reservation

@@ -20,6 +20,7 @@ import {
   useCreateReservation,
   useReservation,
   useTimeline,
+  useUpdateRoomDetails,
   useUpdateRoomStatus,
 } from "../lib/reservations";
 import { ApiError } from "../lib/api";
@@ -29,6 +30,7 @@ import {
   formatMoney,
   inputToCents,
   nights,
+  toDateInput,
 } from "../lib/format";
 import type { Room, ReservationRoom, ReservationRoomStatus } from "../types";
 
@@ -691,7 +693,94 @@ function DialogRoomRow({
   room: ReservationRoom;
   reservationId: string;
 }) {
-  const mutation = useUpdateRoomStatus(reservationId);
+  const statusMutation = useUpdateRoomStatus(reservationId);
+  const detailsMutation = useUpdateRoomDetails(reservationId);
+  const [editing, setEditing] = useState(false);
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [rate, setRate] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function startEdit() {
+    setCheckIn(toDateInput(room.check_in));
+    setCheckOut(toDateInput(room.check_out));
+    setRate(centsToInput(room.rate_cents));
+    setError(null);
+    setEditing(true);
+  }
+
+  function save(e: FormEvent) {
+    e.preventDefault();
+    if (!checkIn || !checkOut || checkOut <= checkIn) {
+      setError("Check-out must be after check-in.");
+      return;
+    }
+    detailsMutation.mutate(
+      { roomId: room.id, checkIn, checkOut, rateCents: inputToCents(rate) },
+      {
+        onSuccess: () => setEditing(false),
+        onError: (err) =>
+          setError(
+            err instanceof ApiError ? err.message : "Couldn't save changes.",
+          ),
+      },
+    );
+  }
+
+  if (editing) {
+    return (
+      <form
+        onSubmit={save}
+        className="space-y-3 rounded-md border border-border p-3"
+      >
+        <div className="text-sm font-medium">Room {room.room_number ?? "—"}</div>
+        <div className="grid grid-cols-3 gap-2">
+          <Field label="Check-in" htmlFor={`ci-${room.id}`}>
+            <Input
+              id={`ci-${room.id}`}
+              type="date"
+              value={checkIn}
+              onChange={(e) => setCheckIn(e.target.value)}
+            />
+          </Field>
+          <Field label="Check-out" htmlFor={`co-${room.id}`}>
+            <Input
+              id={`co-${room.id}`}
+              type="date"
+              value={checkOut}
+              onChange={(e) => setCheckOut(e.target.value)}
+            />
+          </Field>
+          <Field label="Rate" htmlFor={`rate-${room.id}`}>
+            <Input
+              id={`rate-${room.id}`}
+              type="number"
+              min={0}
+              step="0.01"
+              value={rate}
+              onChange={(e) => setRate(e.target.value)}
+            />
+          </Field>
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setEditing(false)}
+            disabled={detailsMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" disabled={detailsMutation.isPending}>
+            {detailsMutation.isPending && <Spinner />}
+            Save
+          </Button>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
@@ -709,13 +798,13 @@ function DialogRoomRow({
       </div>
 
       <div className="flex items-center gap-2">
-        {mutation.isPending && <Spinner />}
+        {statusMutation.isPending && <Spinner />}
         <Select
           className="w-36"
           value={room.status}
-          disabled={mutation.isPending}
+          disabled={statusMutation.isPending}
           onChange={(e) =>
-            mutation.mutate({
+            statusMutation.mutate({
               roomId: room.id,
               status: e.target.value as ReservationRoomStatus,
             })
@@ -727,6 +816,14 @@ function DialogRoomRow({
             </option>
           ))}
         </Select>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={startEdit}
+        >
+          Edit
+        </Button>
       </div>
     </div>
   );
