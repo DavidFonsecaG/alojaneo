@@ -7,7 +7,14 @@ import { Input, Select } from "./ui/input";
 import { Field } from "./ui/field";
 import { StatusBadge } from "./StatusBadge";
 import { CenteredSpinner, Spinner } from "./ui/spinner";
-import { useGuests, useRatePlans, useRooms, useCreateGuest } from "../lib/setup";
+import {
+  useGuest,
+  useGuests,
+  useRatePlans,
+  useRooms,
+  useCreateGuest,
+  useUpdateGuest,
+} from "../lib/setup";
 import {
   useAddNote,
   useCreateReservation,
@@ -493,14 +500,16 @@ export function ReservationDetailDialog({
               Booking
             </span>
             <div className="text-right">
-              <div className="font-mono text-sm font-semibold text-foreground">
+              <div className="text-sm font-semibold text-foreground">
                 {data.booking_ref}
               </div>
-              <div className="select-all break-all font-mono text-[10px] text-muted-foreground">
+              <div className="select-all break-all text-[10px] text-muted-foreground">
                 {data.id}
               </div>
             </div>
           </div>
+
+          <GuestSection guestId={data.guest_id} />
 
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -525,6 +534,153 @@ export function ReservationDetailDialog({
         </div>
       )}
     </Dialog>
+  );
+}
+
+// Editable guest details inside the reservation popup.
+function GuestSection({ guestId }: { guestId: string }) {
+  const guest = useGuest(guestId);
+  const update = useUpdateGuest();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const g = guest.data;
+
+  function startEdit() {
+    if (!g) return;
+    setForm({
+      firstName: g.first_name,
+      lastName: g.last_name,
+      email: g.email ?? "",
+      phone: g.phone ?? "",
+    });
+    setError(null);
+    setEditing(true);
+  }
+
+  function save(e: FormEvent) {
+    e.preventDefault();
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      setError("First and last name are required.");
+      return;
+    }
+    update.mutate(
+      {
+        id: guestId,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        documentType: g?.document_type ?? undefined,
+        documentNumber: g?.document_number ?? undefined,
+      },
+      {
+        onSuccess: () => setEditing(false),
+        onError: () => setError("Couldn't save changes."),
+      },
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Guest
+        </div>
+        {!editing && g && (
+          <button
+            type="button"
+            onClick={startEdit}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Edit
+          </button>
+        )}
+      </div>
+
+      {guest.isLoading ? (
+        <div className="rounded-md border border-border p-3">
+          <Spinner />
+        </div>
+      ) : editing ? (
+        <form
+          onSubmit={save}
+          className="space-y-3 rounded-md border border-border p-3"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="First name" htmlFor="g-first">
+              <Input
+                id="g-first"
+                value={form.firstName}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, firstName: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Last name" htmlFor="g-last">
+              <Input
+                id="g-last"
+                value={form.lastName}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, lastName: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Email" htmlFor="g-email">
+              <Input
+                id="g-email"
+                type="email"
+                value={form.email}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, email: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Phone" htmlFor="g-phone">
+              <Input
+                id="g-phone"
+                value={form.phone}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, phone: e.target.value }))
+                }
+              />
+            </Field>
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setEditing(false)}
+              disabled={update.isPending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={update.isPending}>
+              {update.isPending && <Spinner />}
+              Save
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="rounded-md border border-border p-3 text-sm">
+          <div className="font-medium">
+            {g?.first_name} {g?.last_name}
+          </div>
+          <div className="mt-0.5 text-muted-foreground">
+            {g?.email || "No email"}
+            {g?.phone ? ` · ${g.phone}` : ""}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

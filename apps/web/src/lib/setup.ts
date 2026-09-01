@@ -129,6 +129,14 @@ export function useGuests() {
   });
 }
 
+export function useGuest(id: string | undefined) {
+  return useQuery({
+    queryKey: ["guest", id],
+    queryFn: () => api.get<Guest>(`/guests/${id}`),
+    enabled: !!id,
+  });
+}
+
 export interface GuestInput {
   firstName: string;
   lastName: string;
@@ -149,7 +157,9 @@ export function useUpdateGuest() {
   return useInvalidatingMutation(
     ({ id, ...input }: GuestInput & { id: string }) =>
       api.put<Guest>(`/guests/${id}`, input),
-    [["guests"]],
+    // A renamed guest shows up on reservations, the timeline and the
+    // dashboard too, so refresh those alongside the guest queries.
+    [["guests"], ["guest"], ["reservations"], ["reservation"], ["timeline"], ["dashboard"]],
   );
 }
 
