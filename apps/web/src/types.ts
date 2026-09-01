@@ -150,6 +150,7 @@ export interface RatePlan {
 // ── Dashboard ────────────────────────────────────────────────────────
 export interface DashboardArrival {
   reservation_id: string;
+  reservation_room_id: string;
   booking_ref: string;
   first_name: string;
   last_name: string;

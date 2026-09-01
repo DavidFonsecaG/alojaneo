@@ -10,11 +10,14 @@ import {
 } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { StatusBadge } from "../components/StatusBadge";
-import { CenteredSpinner } from "../components/ui/spinner";
+import { Button } from "../components/ui/button";
+import { CenteredSpinner, Spinner } from "../components/ui/spinner";
 import { useDashboard, useOccupancy } from "../lib/dashboard";
+import { useUpdateRoomStatus } from "../lib/reservations";
 import { parseApiDate } from "../lib/format";
 import { cn } from "../lib/utils";
 import type {
+  DashboardArrival,
   DashboardData,
   OccupancySpan,
   ReservationRoomStatus,
@@ -267,32 +270,57 @@ function ArrivingTodayCard({
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr
+                <ArrivalRow
                   key={`${r.reservation_id}-${r.room_number}`}
-                  className="border-t border-border"
-                >
-                  <td className="py-2.5">
-                    <div className="font-medium">
-                      {r.first_name} {r.last_name}
-                    </div>
-                    <div className="font-mono text-xs text-muted-foreground">
-                      {r.booking_ref}
-                    </div>
-                  </td>
-                  <td className="py-2.5">{r.room_number}</td>
-                  <td className="py-2.5 text-muted-foreground">
-                    {r.room_type_name}
-                  </td>
-                  <td className="py-2.5">
-                    <StatusBadge status={r.status} />
-                  </td>
-                </tr>
+                  arrival={r}
+                />
               ))}
             </tbody>
           </table>
         </div>
       )}
     </Panel>
+  );
+}
+
+function ArrivalRow({ arrival }: { arrival: DashboardArrival }) {
+  const mutation = useUpdateRoomStatus(arrival.reservation_id);
+  const canCheckIn = arrival.status === "confirmed";
+
+  return (
+    <tr className="border-t border-border">
+      <td className="py-2.5">
+        <div className="font-medium">
+          {arrival.first_name} {arrival.last_name}
+        </div>
+        <div className="font-mono text-xs text-muted-foreground">
+          {arrival.booking_ref}
+        </div>
+      </td>
+      <td className="py-2.5">{arrival.room_number}</td>
+      <td className="py-2.5 text-muted-foreground">{arrival.room_type_name}</td>
+      <td className="py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <StatusBadge status={arrival.status} />
+          {canCheckIn && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={mutation.isPending}
+              onClick={() =>
+                mutation.mutate({
+                  roomId: arrival.reservation_room_id,
+                  status: "checked_in",
+                })
+              }
+            >
+              {mutation.isPending && <Spinner />}
+              Check in
+            </Button>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
 

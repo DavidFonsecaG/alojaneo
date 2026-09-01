@@ -100,6 +100,7 @@ export function useUpdateRoomStatus(reservationId: string) {
       qc.invalidateQueries({ queryKey: ["reservation", reservationId] });
       qc.invalidateQueries({ queryKey: ["reservations"] });
       qc.invalidateQueries({ queryKey: ["timeline"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

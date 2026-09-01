@@ -59,6 +59,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       const arrivingToday = await tx`
         select
           r.id as reservation_id,
+          rr.id as reservation_room_id,
           r.booking_ref,
           g.first_name,
           g.last_name,
