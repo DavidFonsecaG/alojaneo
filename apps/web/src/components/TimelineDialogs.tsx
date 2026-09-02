@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Trash2 } from "lucide-react";
-import { Dialog, DialogFooter } from "./ui/dialog";
+import { Dialog } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input, Select } from "./ui/input";
 import { Field } from "./ui/field";
@@ -242,9 +242,24 @@ export function QuickCreateDialog({
         lines.length === 1 ? "" : "s"
       } · ${n || 1} night${(n || 1) === 1 ? "" : "s"}`}
       className="max-w-2xl"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="quick-create-form"
+            disabled={submitting || !validDates || lines.length === 0}
+          >
+            {submitting && <Spinner />}
+            Create reservation
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
+      <form id="quick-create-form" onSubmit={onSubmit}>
+        <div className="space-y-4">
           {/* Guest */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -443,19 +458,6 @@ export function QuickCreateDialog({
             </div>
           )}
         </div>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={submitting || !validDates || lines.length === 0}
-          >
-            {submitting && <Spinner />}
-            Create reservation
-          </Button>
-        </DialogFooter>
       </form>
     </Dialog>
   );
@@ -499,7 +501,7 @@ export function ReservationDetailDialog({
           {isError ? (error as Error).message : "Reservation not found."}
         </div>
       ) : (
-        <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+        <div className="space-y-4">
           {/* Booking reference + full id */}
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

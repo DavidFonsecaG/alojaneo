@@ -4,7 +4,7 @@ import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { Dialog, DialogFooter, ConfirmDialog } from "../components/ui/dialog";
+import { Dialog, ConfirmDialog } from "../components/ui/dialog";
 import { Field, Checkbox } from "../components/ui/field";
 import { ErrorBox, EmptyBox } from "../components/States";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
@@ -247,8 +247,23 @@ function RatePlanFormDialog({
       open
       onClose={onClose}
       title={isEdit ? `Edit ${plan?.name}` : "Add rate plan"}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="rate-plan-form"
+            disabled={pending || !name.trim() || rate === ""}
+          >
+            {pending && <Spinner />}
+            {isEdit ? "Save changes" : "Add rate plan"}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form id="rate-plan-form" onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Room type" htmlFor="rp-type">
             <Select
@@ -353,16 +368,6 @@ function RatePlanFormDialog({
         />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={pending || !name.trim() || rate === ""}>
-            {pending && <Spinner />}
-            {isEdit ? "Save changes" : "Add rate plan"}
-          </Button>
-        </DialogFooter>
       </form>
     </Dialog>
   );

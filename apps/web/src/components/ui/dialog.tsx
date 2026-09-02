@@ -9,18 +9,30 @@ interface DialogProps {
   onClose: () => void;
   title: string;
   description?: string;
-  children: ReactNode;
+  children?: ReactNode;
+  /**
+   * Pinned action row rendered below the scrolling body. Stays fixed while the
+   * body scrolls. A submit button here can drive a `<form>` in `children` via
+   * the button's `form="<id>"` attribute, since the two live in sibling DOM.
+   */
+  footer?: ReactNode;
   className?: string;
 }
 
 // Lightweight modal (no Radix). Renders into document.body, closes on Escape
 // or backdrop click, and locks body scroll while open.
+//
+// Layout is a fixed-header / scrolling-body / fixed-footer shell capped at
+// 85vh. The body's scroll track sits flush to the card edge (the card clips it
+// with the rounded corners); the content padding lives on an inner wrapper so
+// the scrollbar never floats inside a gutter.
 export function Dialog({
   open,
   onClose,
   title,
   description,
   children,
+  footer,
   className,
 }: DialogProps) {
   useEffect(() => {
@@ -51,11 +63,12 @@ export function Dialog({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "relative z-10 w-full max-w-lg rounded-lg border border-border bg-card shadow-lg",
+          "relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg",
           className,
         )}
       >
-        <div className="flex items-start justify-between border-b border-border px-5 py-4">
+        {/* Header — fixed */}
+        <div className="flex shrink-0 items-start justify-between border-b border-border px-5 py-4">
           <div>
             <h2 className="font-semibold leading-none tracking-tight">
               {title}
@@ -74,16 +87,24 @@ export function Dialog({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="px-5 py-4">{children}</div>
+
+        {/* Body — scrolls; the track is flush to the card edge, padding is
+            on the inner wrapper so it never sits in a gutter. */}
+        {children ? (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="px-5 py-4">{children}</div>
+          </div>
+        ) : null}
+
+        {/* Footer — fixed action row below the scrolling body */}
+        {footer && (
+          <div className="flex shrink-0 justify-end gap-2 border-t border-border px-5 py-4">
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body,
-  );
-}
-
-export function DialogFooter({ children }: { children: ReactNode }) {
-  return (
-    <div className="mt-5 flex justify-end gap-2">{children}</div>
   );
 }
 
@@ -107,15 +128,24 @@ export function ConfirmDialog({
   loading,
 }: ConfirmDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} title={title} description={description}>
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button variant="destructive" onClick={onConfirm} disabled={loading}>
-          {confirmLabel}
-        </Button>
-      </DialogFooter>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={loading}>
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      {description && (
+        <p className="text-sm text-muted-foreground">{description}</p>
+      )}
     </Dialog>
   );
 }

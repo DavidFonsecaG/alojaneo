@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Dialog, DialogFooter, ConfirmDialog } from "../components/ui/dialog";
+import { Dialog, ConfirmDialog } from "../components/ui/dialog";
 import { Field } from "../components/ui/field";
 import { ErrorBox, EmptyBox } from "../components/States";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
@@ -315,8 +315,23 @@ function RoomFormDialog({
       open
       onClose={onClose}
       title={isEdit ? `Edit room ${room?.room_number}` : "Add room"}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="room-form"
+            disabled={pending || !roomNumber.trim()}
+          >
+            {pending && <Spinner />}
+            {isEdit ? "Save changes" : "Add room"}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form id="room-form" onSubmit={onSubmit} className="space-y-4">
         <Field label="Room type" htmlFor="room-type">
           <Select
             id="room-type"
@@ -365,16 +380,6 @@ function RoomFormDialog({
         </Field>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={pending || !roomNumber.trim()}>
-            {pending && <Spinner />}
-            {isEdit ? "Save changes" : "Add room"}
-          </Button>
-        </DialogFooter>
       </form>
     </Dialog>
   );

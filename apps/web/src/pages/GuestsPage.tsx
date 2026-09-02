@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, Users, Search } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
-import { Dialog, DialogFooter, ConfirmDialog } from "../components/ui/dialog";
+import { Dialog, ConfirmDialog } from "../components/ui/dialog";
 import { Field } from "../components/ui/field";
 import { ErrorBox, EmptyBox } from "../components/States";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
@@ -221,8 +221,23 @@ function GuestFormDialog({
       open
       onClose={onClose}
       title={isEdit ? `Edit ${guest?.first_name} ${guest?.last_name}` : "Add guest"}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="guest-form"
+            disabled={pending || !firstName.trim() || !lastName.trim()}
+          >
+            {pending && <Spinner />}
+            {isEdit ? "Save changes" : "Add guest"}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form id="guest-form" onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label="First name" htmlFor="g-first">
             <Input
@@ -282,19 +297,6 @@ function GuestFormDialog({
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={pending || !firstName.trim() || !lastName.trim()}
-          >
-            {pending && <Spinner />}
-            {isEdit ? "Save changes" : "Add guest"}
-          </Button>
-        </DialogFooter>
       </form>
     </Dialog>
   );
