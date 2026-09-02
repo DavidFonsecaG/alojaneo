@@ -17,7 +17,9 @@ import {
 } from "../lib/setup";
 import {
   useAddNote,
+  useAddReservationRoom,
   useCreateReservation,
+  useRemoveReservationRoom,
   useReservation,
   useTimeline,
   useUpdateRoomDetails,
@@ -470,6 +472,7 @@ export function ReservationDetailDialog({
   onClose: () => void;
 }) {
   const { data, isLoading, isError, error } = useReservation(id);
+  const [adding, setAdding] = useState(false);
 
   return (
     <Dialog
@@ -519,8 +522,30 @@ export function ReservationDetailDialog({
               Rooms
             </div>
             {data.rooms.map((room) => (
-              <DialogRoomRow key={room.id} room={room} reservationId={data.id} />
+              <DialogRoomRow
+                key={room.id}
+                room={room}
+                reservationId={data.id}
+                canRemove={data.rooms.length > 1}
+              />
             ))}
+            {adding ? (
+              <AddRoomForm
+                reservationId={data.id}
+                existingRoomIds={data.rooms.map((r) => r.room_id)}
+                defaultCheckIn={toDateInput(data.rooms[0]?.check_in)}
+                defaultCheckOut={toDateInput(data.rooms[0]?.check_out)}
+                onDone={() => setAdding(false)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                + Add a room
+              </button>
+            )}
           </div>
 
           <DialogNotes reservationId={data.id} notes={data.notes} />
@@ -690,12 +715,15 @@ function GuestSection({ guestId }: { guestId: string }) {
 function DialogRoomRow({
   room,
   reservationId,
+  canRemove,
 }: {
   room: ReservationRoom;
   reservationId: string;
+  canRemove: boolean;
 }) {
   const statusMutation = useUpdateRoomStatus(reservationId);
   const detailsMutation = useUpdateRoomDetails(reservationId);
+  const removeMutation = useRemoveReservationRoom(reservationId);
   const [editing, setEditing] = useState(false);
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
@@ -817,16 +845,222 @@ function DialogRoomRow({
             </option>
           ))}
         </Select>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={startEdit}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={startEdit}>
           Edit
         </Button>
+        {canRemove && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Remove room"
+            title="Remove room"
+            disabled={removeMutation.isPending}
+            onClick={() => removeMutation.mutate(room.id)}
+          >
+            {removeMutation.isPending ? (
+              <Spinner />
+            ) : (
+              <Trash2 className="h-4 w-4 text-destructive" />
+            )}
+          </Button>
+        )}
       </div>
     </div>
+  );
+}
+
+// Add another room to an existing reservation. Availability-filtered, like
+// the quick-create picker.
+function AddRoomForm({
+  reservationId,
+  existingRoomIds,
+  defaultCheckIn,
+  defaultCheckOut,
+  onDone,
+}: {
+  reservationId: string;
+  existingRoomIds: string[];
+  defaultCheckIn: string;
+  defaultCheckOut: string;
+  onDone: () => void;
+}) {
+  const rooms = useRooms();
+  const ratePlans = useRatePlans();
+  const add = useAddReservationRoom(reservationId);
+
+  const [checkIn, setCheckIn] = useState(defaultCheckIn);
+  const [checkOut, setCheckOut] = useState(defaultCheckOut);
+  const [roomId, setRoomId] = useState("");
+  const [ratePlanId, setRatePlanId] = useState("");
+  const [rate, setRate] = useState("");
+  const [rateEdited, setRateEdited] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const validDates = !!checkIn && !!checkOut && checkOut > checkIn;
+  const n = validDates ? nights(checkIn, checkOut) : 0;
+  const occupancy = useTimeline(
+    validDates ? checkIn : "",
+    validDates ? checkOut : "",
+  );
+  const occupied = new Set((occupancy.data ?? []).map((s) => s.room_id));
+
+  const roomById = new Map((rooms.data ?? []).map((r) => [r.id, r]));
+  const availableRooms = (rooms.data ?? []).filter(
+    (r) =>
+      r.status === "available" &&
+      !existingRoomIds.includes(r.id) &&
+      !occupied.has(r.id),
+  );
+  const plansForRoom = (rid: string) => {
+    const r = roomById.get(rid);
+    return r
+      ? (ratePlans.data ?? []).filter((p) => p.room_type_id === r.room_type_id)
+      : [];
+  };
+  const defaultRate = (planId: string, nn: number) => {
+    const p = (ratePlans.data ?? []).find((x) => x.id === planId);
+    return p ? p.base_rate_cents * Math.max(nn, 1) : 0;
+  };
+
+  function onRoomChange(rid: string) {
+    setRoomId(rid);
+    const pid = plansForRoom(rid)[0]?.id ?? "";
+    setRatePlanId(pid);
+    setRateEdited(false);
+    setRate(centsToInput(defaultRate(pid, n)));
+  }
+  function onPlanChange(pid: string) {
+    setRatePlanId(pid);
+    setRateEdited(false);
+    setRate(centsToInput(defaultRate(pid, n)));
+  }
+  function onDates(nin: string, nout: string) {
+    setCheckIn(nin);
+    setCheckOut(nout);
+    const nn = nin && nout && nout > nin ? nights(nin, nout) : 0;
+    if (!rateEdited && ratePlanId) {
+      setRate(centsToInput(defaultRate(ratePlanId, nn)));
+    }
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!validDates) return setError("Check-out must be after check-in.");
+    if (!roomId) return setError("Select a room.");
+    add.mutate(
+      {
+        roomId,
+        ratePlanId: ratePlanId || undefined,
+        rateCents: inputToCents(rate),
+        checkIn,
+        checkOut,
+      },
+      {
+        onSuccess: () => onDone(),
+        onError: (err) =>
+          setError(
+            err instanceof ApiError ? err.message : "Couldn't add the room.",
+          ),
+      },
+    );
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="space-y-3 rounded-md border border-dashed border-border p-3"
+    >
+      <div className="text-sm font-medium">Add a room</div>
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Check-in" htmlFor="ar-ci">
+          <Input
+            id="ar-ci"
+            type="date"
+            value={checkIn}
+            onChange={(e) => onDates(e.target.value, checkOut)}
+          />
+        </Field>
+        <Field label="Check-out" htmlFor="ar-co">
+          <Input
+            id="ar-co"
+            type="date"
+            value={checkOut}
+            onChange={(e) => onDates(checkIn, e.target.value)}
+          />
+        </Field>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <Field label="Room" htmlFor="ar-room">
+          <Select
+            id="ar-room"
+            value={roomId}
+            onChange={(e) => onRoomChange(e.target.value)}
+          >
+            <option value="">Choose…</option>
+            {availableRooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                Room {r.room_number} · {r.room_type_name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Rate plan" htmlFor="ar-plan">
+          <Select
+            id="ar-plan"
+            value={ratePlanId}
+            disabled={!roomId}
+            onChange={(e) => onPlanChange(e.target.value)}
+          >
+            <option value="">No plan</option>
+            {plansForRoom(roomId).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Rate" htmlFor="ar-rate">
+          <Input
+            id="ar-rate"
+            type="number"
+            min={0}
+            step="0.01"
+            value={rate}
+            onChange={(e) => {
+              setRate(e.target.value);
+              setRateEdited(true);
+            }}
+          />
+        </Field>
+      </div>
+      {validDates && availableRooms.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          No rooms free for these dates.
+        </p>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onDone}
+          disabled={add.isPending}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={add.isPending || !roomId || !validDates}
+        >
+          {add.isPending && <Spinner />}
+          Add room
+        </Button>
+      </div>
+    </form>
   );
 }
 

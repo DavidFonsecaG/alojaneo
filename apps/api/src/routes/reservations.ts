@@ -43,6 +43,18 @@ const updateRoomDetailsSchema = z
     message: "Provide at least one field to update",
   });
 
+const addRoomSchema = z
+  .object({
+    roomId: z.string().uuid(),
+    ratePlanId: z.string().uuid().optional(),
+    rateCents: z.number().int().nonnegative(),
+    checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  })
+  .refine((r) => r.checkOut > r.checkIn, {
+    message: "checkOut must be after checkIn",
+  });
+
 const createNoteSchema = z.object({
   body: z.string().min(1),
 });
@@ -434,6 +446,114 @@ export async function reservationRoutes(app: FastifyInstance) {
       }
       throw err;
     }
+  });
+
+  // POST /reservations/:id/rooms — add a room-stay to an existing reservation
+  app.post("/reservations/:id/rooms", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = addRoomSchema.parse(req.body);
+
+    try {
+      const result = await withTenant(req.hotelId, async (tx) => {
+        const [reservation] = await tx`
+          select id from reservations where id = ${id}
+        `;
+        if (!reservation) return null;
+
+        const [conflict] = await tx`
+          select 1
+          from reservation_rooms
+          where room_id = ${body.roomId}
+            and status not in ('cancelled', 'no_show')
+            and check_in < ${body.checkOut}
+            and check_out > ${body.checkIn}
+          limit 1
+        `;
+        if (conflict) {
+          throw Object.assign(
+            new Error(
+              `Room is not available for ${body.checkIn} to ${body.checkOut}`,
+            ),
+            { statusCode: 409 },
+          );
+        }
+
+        const [room] = await tx`
+          insert into reservation_rooms (reservation_id, room_id, rate_plan_id, rate_cents, check_in, check_out, status)
+          values (${id}, ${body.roomId}, ${body.ratePlanId ?? null}, ${body.rateCents}, ${body.checkIn}, ${body.checkOut}, 'confirmed')
+          returning id, reservation_id, room_id, rate_plan_id, rate_cents, check_in, check_out, status, created_at
+        `;
+
+        await tx`
+          update reservations
+          set total_amount_cents = (
+            select coalesce(sum(rate_cents), 0)
+            from reservation_rooms where reservation_id = ${id}
+          )
+          where id = ${id}
+        `;
+
+        return room;
+      });
+
+      if (!result) {
+        return reply.code(404).send({ error: "Reservation not found" });
+      }
+      return reply.code(201).send(result);
+    } catch (err) {
+      if ((err as { statusCode?: number })?.statusCode === 409) {
+        return reply.code(409).send({ error: (err as Error).message });
+      }
+      if ((err as { code?: string })?.code === "23P01") {
+        return reply.code(409).send({
+          error: "Room is no longer available for the selected dates",
+        });
+      }
+      throw err;
+    }
+  });
+
+  // DELETE /reservation-rooms/:id — remove a room-stay (not the last one)
+  app.delete("/reservation-rooms/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+
+    const result = await withTenant(req.hotelId, async (tx) => {
+      const [current] = await tx`
+        select rr.id, rr.reservation_id
+        from reservation_rooms rr
+        join reservations r on r.id = rr.reservation_id
+        where rr.id = ${id}
+      `;
+      if (!current) return { notFound: true as const };
+
+      const [{ count }] = await tx`
+        select count(*)::int as count
+        from reservation_rooms
+        where reservation_id = ${current.reservation_id}
+      `;
+      if (count <= 1) return { lastRoom: true as const };
+
+      await tx`delete from reservation_rooms where id = ${id}`;
+      await tx`
+        update reservations
+        set total_amount_cents = (
+          select coalesce(sum(rate_cents), 0)
+          from reservation_rooms where reservation_id = ${current.reservation_id}
+        )
+        where id = ${current.reservation_id}
+      `;
+      return { ok: true as const };
+    });
+
+    if ("notFound" in result) {
+      return reply.code(404).send({ error: "Reservation room not found" });
+    }
+    if ("lastRoom" in result) {
+      return reply
+        .code(400)
+        .send({ error: "A reservation must have at least one room." });
+    }
+    return reply.code(204).send();
   });
 
   // POST /reservations/:id/notes — add a note to a reservation

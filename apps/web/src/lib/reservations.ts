@@ -133,6 +133,40 @@ export function useUpdateRoomDetails(reservationId: string) {
   });
 }
 
+export function useAddReservationRoom(reservationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      roomId: string;
+      ratePlanId?: string;
+      rateCents: number;
+      checkIn: string;
+      checkOut: string;
+    }) =>
+      api.post<ReservationRoom>(`/reservations/${reservationId}/rooms`, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reservation", reservationId] });
+      qc.invalidateQueries({ queryKey: ["reservations"] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useRemoveReservationRoom(reservationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (roomId: string) =>
+      api.del<void>(`/reservation-rooms/${roomId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reservation", reservationId] });
+      qc.invalidateQueries({ queryKey: ["reservations"] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 export function useAddNote(reservationId: string) {
   const qc = useQueryClient();
   return useMutation({
