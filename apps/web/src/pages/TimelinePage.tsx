@@ -22,6 +22,7 @@ import type { Room, TimelineStay } from "../types";
 const LEFT_W = 164; // frozen room column
 const MIN_DAY_W = 52; // below this we scroll instead of shrinking (keeps the date on one line)
 const DEFAULT_DAY_W = 112; // used for the first paint, before the card is measured
+const FIT_SLACK = 2; // px kept free so a fitting range never flashes a phantom scrollbar
 const ROW_H = 44; // one room lane
 const HEADER_H = 60; // date header lane — a touch taller than the room lanes
 const DAY_MS = 86_400_000;
@@ -209,9 +210,12 @@ export function TimelinePage() {
 
   // Stretch each day column to fill the card; only fall back to the minimum
   // (which then scrolls horizontally) when the range can't fit the width.
+  // FIT_SLACK keeps the columns a hair narrower than the container so
+  // sub-pixel rounding of a fractional dayW can't tip the body over the edge
+  // and flash a phantom horizontal scrollbar when everything already fits.
   const dayW =
     containerW > 0
-      ? Math.max(MIN_DAY_W, (containerW - LEFT_W) / windowDays)
+      ? Math.max(MIN_DAY_W, (containerW - LEFT_W - FIT_SLACK) / windowDays)
       : DEFAULT_DAY_W;
   const bodyWidth = LEFT_W + windowDays * dayW;
 
