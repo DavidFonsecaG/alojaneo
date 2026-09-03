@@ -230,7 +230,7 @@ export function TimelinePage() {
     <div className="flex h-full flex-col gap-3">
       {/* Title sits directly on the canvas, not in a card */}
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Timeline</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Calendar</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Rooms down the side, stays across the days
         </p>
@@ -238,7 +238,7 @@ export function TimelinePage() {
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
-          <CenteredSpinner label="Loading timeline…" />
+          <CenteredSpinner label="Loading calendar…" />
         </div>
       ) : noRooms ? (
         <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">

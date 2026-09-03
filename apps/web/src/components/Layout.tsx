@@ -26,7 +26,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
-  { to: "/timeline", label: "Timeline", icon: CalendarRange, enabled: true },
+  { to: "/timeline", label: "Calendar", icon: CalendarRange, enabled: true },
   { to: "/reservations", label: "Reservations", icon: ClipboardList, enabled: true },
   { to: "/rooms", label: "Rooms", icon: BedDouble, enabled: true },
   { to: "/rate-plans", label: "Rate plans", icon: Tags, enabled: true },
