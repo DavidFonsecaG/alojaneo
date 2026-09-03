@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import { Dialog } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { Input, Select } from "./ui/input";
+import { Input, Label, Select } from "./ui/input";
 import { Field } from "./ui/field";
 import { StatusBadge } from "./StatusBadge";
 import { CenteredSpinner, Spinner } from "./ui/spinner";
@@ -18,7 +24,9 @@ import {
 import {
   useAddNote,
   useAddReservationRoom,
+  useCreatePayment,
   useCreateReservation,
+  usePayments,
   useRemoveReservationRoom,
   useReservation,
   useTimeline,
@@ -26,6 +34,7 @@ import {
   useUpdateRoomStatus,
 } from "../lib/reservations";
 import { ApiError } from "../lib/api";
+import { cn } from "../lib/utils";
 import {
   centsToInput,
   formatDate,
@@ -34,7 +43,38 @@ import {
   nights,
   toDateInput,
 } from "../lib/format";
-import type { Room, ReservationRoom, ReservationRoomStatus } from "../types";
+import type {
+  PaymentMethod,
+  Room,
+  ReservationRoom,
+  ReservationRoomStatus,
+} from "../types";
+
+const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: "cash", label: "Cash" },
+  { value: "credit_card", label: "Credit card" },
+  { value: "bank_transfer", label: "Bank transfer" },
+];
+
+// Prominent section heading used across the reservation popup so each block
+// (Rooms, Guest, Notes) reads as its own clear subtitle rather than a faint
+// uppercase label.
+function SectionHeader({
+  title,
+  action,
+}: {
+  title: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <h3 className="text-base font-semibold tracking-tight text-foreground">
+        {title}
+      </h3>
+      {action}
+    </div>
+  );
+}
 
 const ROOM_STATUSES: ReservationRoomStatus[] = [
   "confirmed",
@@ -241,7 +281,8 @@ export function QuickCreateDialog({
       description={`One guest · ${lines.length} room${
         lines.length === 1 ? "" : "s"
       } · ${n || 1} night${(n || 1) === 1 ? "" : "s"}`}
-      className="max-w-2xl"
+      className="max-w-5xl"
+      headerAccent
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
@@ -259,197 +300,232 @@ export function QuickCreateDialog({
       }
     >
       <form id="quick-create-form" onSubmit={onSubmit}>
-        <div className="space-y-4">
-          {/* Guest */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Guest</span>
-              <div className="flex gap-1 text-sm">
-                <button
-                  type="button"
-                  onClick={() => setGuestMode("existing")}
-                  className={
-                    guestMode === "existing"
-                      ? "font-medium text-primary"
-                      : "text-muted-foreground hover:text-foreground"
-                  }
-                >
-                  Existing
-                </button>
-                <span className="text-muted-foreground">·</span>
-                <button
-                  type="button"
-                  onClick={() => setGuestMode("new")}
-                  className={
-                    guestMode === "new"
-                      ? "font-medium text-primary"
-                      : "text-muted-foreground hover:text-foreground"
-                  }
-                >
-                  New
-                </button>
-              </div>
-            </div>
-            {guestMode === "existing" ? (
-              <Select
-                value={guestId}
-                onChange={(e) => setGuestId(e.target.value)}
-              >
-                <option value="">Choose a guest…</option>
-                {(guests.data ?? []).map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.last_name}, {g.first_name}
-                    {g.email ? ` (${g.email})` : ""}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="First name" htmlFor="qc-first">
-                  <Input
-                    id="qc-first"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                  />
-                </Field>
-                <Field label="Last name" htmlFor="qc-last">
-                  <Input
-                    id="qc-last"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
-                </Field>
-                <Field label="Email" htmlFor="qc-email">
-                  <Input
-                    id="qc-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </Field>
-                <Field label="Phone" htmlFor="qc-phone">
-                  <Input
-                    id="qc-phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                </Field>
-              </div>
-            )}
-          </div>
-
-          {/* Dates (shared by every room in the reservation) */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Check-in" htmlFor="qc-ci">
-              <Input
-                id="qc-ci"
-                type="date"
-                value={checkIn}
-                onChange={(e) => onDates(e.target.value, checkOut)}
-              />
-            </Field>
-            <Field label="Check-out" htmlFor="qc-co">
-              <Input
-                id="qc-co"
-                type="date"
-                value={checkOut}
-                onChange={(e) => onDates(checkIn, e.target.value)}
-              />
-            </Field>
-          </div>
-          {checkIn && checkOut && !validDates && (
-            <p className="text-sm text-destructive">
-              Check-out must be after check-in.
-            </p>
-          )}
-
-          {/* Rooms */}
-          <div className="space-y-2">
-            <span className="text-sm font-medium">Rooms</span>
-            {lines.length === 0 && (
-              <p className="text-sm text-muted-foreground">No rooms added.</p>
-            )}
-            {lines.map((line) => {
-              const r = roomById.get(line.roomId);
-              const plans = plansForRoom(line.roomId);
-              return (
-                <div
-                  key={line.key}
-                  className="flex flex-wrap items-end gap-3 rounded-md border border-border p-3"
-                >
-                  <div className="min-w-[6rem] flex-1">
-                    <div className="text-sm font-medium">
-                      Room {r?.room_number}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {r?.room_type_name}
-                    </div>
-                  </div>
-                  <div className="w-40">
-                    <Field label="Rate plan" htmlFor={`plan-${line.key}`}>
-                      <Select
-                        id={`plan-${line.key}`}
-                        value={line.ratePlanId}
-                        onChange={(e) => setLinePlan(line.key, e.target.value)}
+        <div className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-[1fr_20rem] md:items-start">
+            <div className="space-y-6">
+              {/* Guest */}
+              <section className="space-y-3">
+                <SectionHeader
+                  title="Guest"
+                  action={
+                    <div className="flex gap-1 text-sm">
+                      <button
+                        type="button"
+                        onClick={() => setGuestMode("existing")}
+                        className={
+                          guestMode === "existing"
+                            ? "font-medium text-primary"
+                            : "text-muted-foreground hover:text-foreground"
+                        }
                       >
-                        <option value="">No plan</option>
-                        {plans.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                  </div>
-                  <div className="w-24">
-                    <Field label="Rate" htmlFor={`rate-${line.key}`}>
-                      <Input
-                        id={`rate-${line.key}`}
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={centsToInput(line.rateCents)}
-                        onChange={(e) => setLineRate(line.key, e.target.value)}
-                      />
-                    </Field>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeLine(line.key)}
-                    aria-label="Remove room"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                        Existing
+                      </button>
+                      <span className="text-muted-foreground">·</span>
+                      <button
+                        type="button"
+                        onClick={() => setGuestMode("new")}
+                        className={
+                          guestMode === "new"
+                            ? "font-medium text-primary"
+                            : "text-muted-foreground hover:text-foreground"
+                        }
+                      >
+                        New
+                      </button>
+                    </div>
+                  }
+                />
+                <div className="rounded-lg border border-border p-4">
+                  {guestMode === "existing" ? (
+                    <Select
+                      value={guestId}
+                      onChange={(e) => setGuestId(e.target.value)}
+                    >
+                      <option value="">Choose a guest…</option>
+                      {(guests.data ?? []).map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.last_name}, {g.first_name}
+                          {g.email ? ` (${g.email})` : ""}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="First name" htmlFor="qc-first">
+                        <Input
+                          id="qc-first"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="Last name" htmlFor="qc-last">
+                        <Input
+                          id="qc-last"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="Email" htmlFor="qc-email">
+                        <Input
+                          id="qc-email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="Phone" htmlFor="qc-phone">
+                        <Input
+                          id="qc-phone"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                        />
+                      </Field>
+                    </div>
+                  )}
                 </div>
-              );
-            })}
+              </section>
 
-            {addableRooms.length > 0 ? (
-              <Select
-                value=""
-                onChange={(e) => {
-                  if (e.target.value) addRoom(e.target.value);
-                }}
-              >
-                <option value="">+ Add another room…</option>
-                {addableRooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    Room {r.room_number} · {r.room_type_name}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                All available rooms have been added.
-              </p>
-            )}
-          </div>
+              {/* Stay dates — shared by every room in the reservation */}
+              <section className="space-y-3">
+                <SectionHeader title="Stay dates" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Check-in" htmlFor="qc-ci">
+                    <Input
+                      id="qc-ci"
+                      type="date"
+                      value={checkIn}
+                      onChange={(e) => onDates(e.target.value, checkOut)}
+                    />
+                  </Field>
+                  <Field label="Check-out" htmlFor="qc-co">
+                    <Input
+                      id="qc-co"
+                      type="date"
+                      value={checkOut}
+                      onChange={(e) => onDates(checkIn, e.target.value)}
+                    />
+                  </Field>
+                </div>
+                {checkIn && checkOut && !validDates && (
+                  <p className="text-sm text-destructive">
+                    Check-out must be after check-in.
+                  </p>
+                )}
+              </section>
 
-          <div className="flex items-center justify-between border-t border-border pt-3">
-            <span className="text-sm text-muted-foreground">Total</span>
-            <span className="font-semibold">{formatMoney(total)}</span>
+              {/* Rooms */}
+              <section className="space-y-3">
+                <SectionHeader title="Rooms" />
+                {lines.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No rooms added.</p>
+                )}
+                {lines.map((line) => {
+                  const r = roomById.get(line.roomId);
+                  const plans = plansForRoom(line.roomId);
+                  return (
+                    <div
+                      key={line.key}
+                      className="flex flex-wrap items-end gap-3 rounded-lg border border-border p-4"
+                    >
+                      <div className="min-w-[6rem] flex-1">
+                        <div className="text-sm font-semibold">
+                          Room {r?.room_number}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {r?.room_type_name}
+                        </div>
+                      </div>
+                      <div className="w-40">
+                        <Field label="Rate plan" htmlFor={`plan-${line.key}`}>
+                          <Select
+                            id={`plan-${line.key}`}
+                            value={line.ratePlanId}
+                            onChange={(e) =>
+                              setLinePlan(line.key, e.target.value)
+                            }
+                          >
+                            <option value="">No plan</option>
+                            {plans.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </Field>
+                      </div>
+                      <div className="w-24">
+                        <Field label="Rate" htmlFor={`rate-${line.key}`}>
+                          <Input
+                            id={`rate-${line.key}`}
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={centsToInput(line.rateCents)}
+                            onChange={(e) =>
+                              setLineRate(line.key, e.target.value)
+                            }
+                          />
+                        </Field>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeLine(line.key)}
+                        aria-label="Remove room"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  );
+                })}
+
+                {addableRooms.length > 0 ? (
+                  <Select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) addRoom(e.target.value);
+                    }}
+                  >
+                    <option value="">+ Add another room…</option>
+                    {addableRooms.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        Room {r.room_number} · {r.room_type_name}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    All available rooms have been added.
+                  </p>
+                )}
+              </section>
+            </div>
+
+            {/* Booking summary — live totals for the new reservation */}
+            <aside>
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <SectionHeader title="Booking summary" />
+                <dl className="mt-3 space-y-2.5 text-sm">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <dt className="text-muted-foreground">Nights</dt>
+                    <dd className="font-semibold tabular-nums">
+                      {validDates ? n : 0}
+                    </dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <dt className="text-muted-foreground">Rooms</dt>
+                    <dd className="font-semibold tabular-nums">{lines.length}</dd>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-border pt-3">
+                    <dt className="font-semibold text-foreground">Total</dt>
+                    <dd className="text-xl font-bold tabular-nums">
+                      {formatMoney(total)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </aside>
           </div>
 
           {error && (
@@ -476,6 +552,19 @@ export function ReservationDetailDialog({
   const { data, isLoading, isError, error } = useReservation(id);
   const [adding, setAdding] = useState(false);
 
+  // Overall stay window + total, derived from the per-room dates/rates (our
+  // model keeps dates on each room, not the reservation folder).
+  const checkIns = data ? data.rooms.map((r) => r.check_in).sort() : [];
+  const checkOuts = data ? data.rooms.map((r) => r.check_out).sort() : [];
+  const rangeIn = checkIns[0];
+  const rangeOut = checkOuts[checkOuts.length - 1];
+  const stayNights = rangeIn && rangeOut ? nights(rangeIn, rangeOut) : 0;
+  const roomsTotalCents = data
+    ? (data.total_amount_cents ??
+      data.rooms.reduce((s, r) => s + r.rate_cents, 0))
+    : 0;
+  const statuses = data ? [...new Set(data.rooms.map((r) => r.status))] : [];
+
   return (
     <Dialog
       open
@@ -485,12 +574,22 @@ export function ReservationDetailDialog({
       }
       description={
         data
-          ? `${data.rooms.length} room${data.rooms.length === 1 ? "" : "s"} · ${formatMoney(
-              data.total_amount_cents,
-            )} · ${data.source.replace(/_/g, " ")}`
+          ? `Booking ${data.booking_ref} · ${data.source.replace(/_/g, " ")}`
           : undefined
       }
-      className="max-w-2xl"
+      className="max-w-5xl"
+      headerAccent
+      footer={
+        data ? (
+          <Link
+            to={`/reservations/${data.id}`}
+            onClick={onClose}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Open full page →
+          </Link>
+        ) : undefined
+      }
     >
       {isLoading ? (
         <div className="py-8">
@@ -501,28 +600,45 @@ export function ReservationDetailDialog({
           {isError ? (error as Error).message : "Reservation not found."}
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Booking reference + full id */}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Booking
-            </span>
-            <div className="text-right">
-              <div className="text-sm font-semibold text-foreground">
-                {data.booking_ref}
-              </div>
-              <div className="select-all break-all text-[10px] text-muted-foreground">
-                {data.id}
-              </div>
+        <div className="space-y-6">
+          {/* Overall stay · aggregate status · reservation id */}
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-muted/40 px-4 py-3">
+            <div className="flex items-center gap-3">
+              {statuses.length === 1 ? (
+                <StatusBadge status={statuses[0]} />
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  Mixed statuses
+                </span>
+              )}
+              {rangeIn && rangeOut && (
+                <span className="text-sm text-muted-foreground">
+                  {formatDate(rangeIn)} → {formatDate(rangeOut)} · {stayNights}{" "}
+                  night{stayNights === 1 ? "" : "s"}
+                </span>
+              )}
+            </div>
+            <div className="select-all break-all text-[10px] text-muted-foreground">
+              {data.id}
             </div>
           </div>
 
-          <GuestSection guestId={data.guest_id} />
-
-          <div className="space-y-2">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Rooms
-            </div>
+          {/* Rooms — full width so each fits on a single row */}
+          <div className="space-y-3">
+            <SectionHeader
+              title="Rooms"
+              action={
+                !adding && (
+                  <button
+                    type="button"
+                    onClick={() => setAdding(true)}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    + Add a room
+                  </button>
+                )
+              }
+            />
             {data.rooms.map((room) => (
               <DialogRoomRow
                 key={room.id}
@@ -531,7 +647,7 @@ export function ReservationDetailDialog({
                 canRemove={data.rooms.length > 1}
               />
             ))}
-            {adding ? (
+            {adding && (
               <AddRoomForm
                 reservationId={data.id}
                 existingRoomIds={data.rooms.map((r) => r.room_id)}
@@ -539,27 +655,21 @@ export function ReservationDetailDialog({
                 defaultCheckOut={toDateInput(data.rooms[0]?.check_out)}
                 onDone={() => setAdding(false)}
               />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setAdding(true)}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                + Add a room
-              </button>
             )}
           </div>
 
-          <DialogNotes reservationId={data.id} notes={data.notes} />
-
-          <div className="flex justify-end border-t border-border pt-3">
-            <Link
-              to={`/reservations/${data.id}`}
-              onClick={onClose}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Open full page →
-            </Link>
+          {/* Guest + notes on the left, money panel on the right */}
+          <div className="grid gap-6 md:grid-cols-[1fr_20rem]">
+            <div className="space-y-6">
+              <GuestSection guestId={data.guest_id} />
+              <DialogNotes reservationId={data.id} notes={data.notes} />
+            </div>
+            <aside>
+              <BookingSummary
+                reservationId={data.id}
+                totalCents={roomsTotalCents}
+              />
+            </aside>
           </div>
         </div>
       )}
@@ -567,11 +677,176 @@ export function ReservationDetailDialog({
   );
 }
 
+// Right-hand money panel: total, what's been received, what's outstanding,
+// and an inline record-payment form.
+function BookingSummary({
+  reservationId,
+  totalCents,
+}: {
+  reservationId: string;
+  totalCents: number;
+}) {
+  const payments = usePayments(reservationId);
+  const [recording, setRecording] = useState(false);
+
+  const received = (payments.data ?? [])
+    .filter((p) => p.status === "completed")
+    .reduce((s, p) => s + p.amount_cents, 0);
+  const outstanding = totalCents - received;
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-4">
+      <SectionHeader title="Booking summary" />
+
+      <dl className="mt-3 space-y-2.5 text-sm">
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Total</dt>
+          <dd className="text-base font-semibold tabular-nums text-foreground">
+            {formatMoney(totalCents)}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Total received</dt>
+          <dd className="text-base font-semibold tabular-nums text-emerald-600">
+            {formatMoney(received)}
+          </dd>
+        </div>
+        <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-border pt-3">
+          <dt className="font-semibold text-foreground">Outstanding</dt>
+          <dd
+            className={cn(
+              "text-xl font-bold tabular-nums",
+              outstanding > 0 ? "text-destructive" : "text-emerald-600",
+            )}
+          >
+            {formatMoney(outstanding)}
+          </dd>
+        </div>
+      </dl>
+
+      {(payments.data ?? []).length > 0 && (
+        <ul className="mt-3 space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+          {(payments.data ?? []).map((p) => (
+            <li key={p.id} className="flex items-center justify-between gap-2">
+              <span className="capitalize">{p.method.replace(/_/g, " ")}</span>
+              <span className="tabular-nums">{formatMoney(p.amount_cents)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {recording ? (
+        <RecordPaymentForm
+          reservationId={reservationId}
+          defaultCents={outstanding > 0 ? outstanding : 0}
+          onDone={() => setRecording(false)}
+        />
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-4 w-full"
+          onClick={() => setRecording(true)}
+        >
+          Record payment
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function RecordPaymentForm({
+  reservationId,
+  defaultCents,
+  onDone,
+}: {
+  reservationId: string;
+  defaultCents: number;
+  onDone: () => void;
+}) {
+  const create = useCreatePayment(reservationId);
+  const [amount, setAmount] = useState(
+    defaultCents > 0 ? centsToInput(defaultCents) : "",
+  );
+  const [method, setMethod] = useState<PaymentMethod>("cash");
+  const [error, setError] = useState<string | null>(null);
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    const cents = inputToCents(amount);
+    if (cents <= 0) {
+      setError("Enter an amount greater than zero.");
+      return;
+    }
+    create.mutate(
+      { amountCents: cents, method },
+      {
+        onSuccess: onDone,
+        onError: (err) =>
+          setError(
+            err instanceof ApiError ? err.message : "Couldn't record payment.",
+          ),
+      },
+    );
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="mt-4 space-y-2 rounded-md border border-dashed border-border p-3"
+    >
+      <Field label="Amount" htmlFor="pay-amount">
+        <Input
+          id="pay-amount"
+          type="number"
+          min={0}
+          step="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+      </Field>
+      <Field label="Method" htmlFor="pay-method">
+        <Select
+          id="pay-method"
+          value={method}
+          onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+        >
+          {PAYMENT_METHODS.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onDone}
+          disabled={create.isPending}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" size="sm" disabled={create.isPending}>
+          {create.isPending && <Spinner />}
+          Record
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 // Editable guest details inside the reservation popup.
 function GuestSection({ guestId }: { guestId: string }) {
   const guest = useGuest(guestId);
   const update = useUpdateGuest();
-  const [editing, setEditing] = useState(false);
+  const g = guest.data;
+
+  // The form is always on screen (no read-only view) — seed it from the loaded
+  // guest and keep it in sync if the record changes underneath.
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -580,9 +855,7 @@ function GuestSection({ guestId }: { guestId: string }) {
   });
   const [error, setError] = useState<string | null>(null);
 
-  const g = guest.data;
-
-  function startEdit() {
+  useEffect(() => {
     if (!g) return;
     setForm({
       firstName: g.first_name,
@@ -590,9 +863,14 @@ function GuestSection({ guestId }: { guestId: string }) {
       email: g.email ?? "",
       phone: g.phone ?? "",
     });
-    setError(null);
-    setEditing(true);
-  }
+  }, [g?.id, g?.first_name, g?.last_name, g?.email, g?.phone]);
+
+  const dirty =
+    !!g &&
+    (form.firstName !== g.first_name ||
+      form.lastName !== g.last_name ||
+      form.email !== (g.email ?? "") ||
+      form.phone !== (g.phone ?? ""));
 
   function save(e: FormEvent) {
     e.preventDefault();
@@ -600,6 +878,7 @@ function GuestSection({ guestId }: { guestId: string }) {
       setError("First and last name are required.");
       return;
     }
+    setError(null);
     update.mutate(
       {
         id: guestId,
@@ -610,38 +889,21 @@ function GuestSection({ guestId }: { guestId: string }) {
         documentType: g?.document_type ?? undefined,
         documentNumber: g?.document_number ?? undefined,
       },
-      {
-        onSuccess: () => setEditing(false),
-        onError: () => setError("Couldn't save changes."),
-      },
+      { onError: () => setError("Couldn't save changes.") },
     );
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Guest
-        </div>
-        {!editing && g && (
-          <button
-            type="button"
-            onClick={startEdit}
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            Edit
-          </button>
-        )}
-      </div>
-
+    <section className="space-y-3">
+      <SectionHeader title="Guest details" />
       {guest.isLoading ? (
-        <div className="rounded-md border border-border p-3">
+        <div className="rounded-lg border border-border p-4">
           <Spinner />
         </div>
-      ) : editing ? (
+      ) : (
         <form
           onSubmit={save}
-          className="space-y-3 rounded-md border border-border p-3"
+          className="space-y-3 rounded-lg border border-border p-4"
         >
           <div className="grid grid-cols-2 gap-3">
             <Field label="First name" htmlFor="g-first">
@@ -683,34 +945,17 @@ function GuestSection({ guestId }: { guestId: string }) {
             </Field>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setEditing(false)}
-              disabled={update.isPending}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" size="sm" disabled={update.isPending}>
-              {update.isPending && <Spinner />}
-              Save
-            </Button>
-          </div>
+          {dirty && (
+            <div className="flex justify-end">
+              <Button type="submit" size="sm" disabled={update.isPending}>
+                {update.isPending && <Spinner />}
+                Save changes
+              </Button>
+            </div>
+          )}
         </form>
-      ) : (
-        <div className="rounded-md border border-border p-3 text-sm">
-          <div className="font-medium">
-            {g?.first_name} {g?.last_name}
-          </div>
-          <div className="mt-0.5 text-muted-foreground">
-            {g?.email || "No email"}
-            {g?.phone ? ` · ${g.phone}` : ""}
-          </div>
-        </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -726,18 +971,30 @@ function DialogRoomRow({
   const statusMutation = useUpdateRoomStatus(reservationId);
   const detailsMutation = useUpdateRoomDetails(reservationId);
   const removeMutation = useRemoveReservationRoom(reservationId);
-  const [editing, setEditing] = useState(false);
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
-  const [rate, setRate] = useState("");
+
+  // Dates + rate are always shown as editable fields (no separate view mode).
+  // Seeded from the room and re-synced when the record changes underneath.
+  const [checkIn, setCheckIn] = useState(toDateInput(room.check_in));
+  const [checkOut, setCheckOut] = useState(toDateInput(room.check_out));
+  const [rate, setRate] = useState(centsToInput(room.rate_cents));
   const [error, setError] = useState<string | null>(null);
 
-  function startEdit() {
+  useEffect(() => {
+    setCheckIn(toDateInput(room.check_in));
+    setCheckOut(toDateInput(room.check_out));
+    setRate(centsToInput(room.rate_cents));
+  }, [room.check_in, room.check_out, room.rate_cents]);
+
+  const dirty =
+    checkIn !== toDateInput(room.check_in) ||
+    checkOut !== toDateInput(room.check_out) ||
+    rate !== centsToInput(room.rate_cents);
+
+  function reset() {
     setCheckIn(toDateInput(room.check_in));
     setCheckOut(toDateInput(room.check_out));
     setRate(centsToInput(room.rate_cents));
     setError(null);
-    setEditing(true);
   }
 
   function save(e: FormEvent) {
@@ -746,10 +1003,10 @@ function DialogRoomRow({
       setError("Check-out must be after check-in.");
       return;
     }
+    setError(null);
     detailsMutation.mutate(
       { roomId: room.id, checkIn, checkOut, rateCents: inputToCents(rate) },
       {
-        onSuccess: () => setEditing(false),
         onError: (err) =>
           setError(
             err instanceof ApiError ? err.message : "Couldn't save changes.",
@@ -758,14 +1015,20 @@ function DialogRoomRow({
     );
   }
 
-  if (editing) {
-    return (
-      <form
-        onSubmit={save}
-        className="space-y-3 rounded-md border border-border p-3"
-      >
-        <div className="text-sm font-medium">Room {room.room_number ?? "—"}</div>
-        <div className="grid grid-cols-3 gap-2">
+  return (
+    <form
+      onSubmit={save}
+      className="space-y-3 rounded-lg border border-border p-4"
+    >
+      {/* One horizontal row: room · dates · rate · status · remove */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-14 shrink-0">
+          <Label>Room</Label>
+          <div className="mt-1.5 flex h-9 items-center text-sm font-semibold">
+            {room.room_number ?? "—"}
+          </div>
+        </div>
+        <div className="min-w-[9rem] flex-1">
           <Field label="Check-in" htmlFor={`ci-${room.id}`}>
             <Input
               id={`ci-${room.id}`}
@@ -774,6 +1037,8 @@ function DialogRoomRow({
               onChange={(e) => setCheckIn(e.target.value)}
             />
           </Field>
+        </div>
+        <div className="min-w-[9rem] flex-1">
           <Field label="Check-out" htmlFor={`co-${room.id}`}>
             <Input
               id={`co-${room.id}`}
@@ -782,6 +1047,8 @@ function DialogRoomRow({
               onChange={(e) => setCheckOut(e.target.value)}
             />
           </Field>
+        </div>
+        <div className="w-28">
           <Field label="Rate" htmlFor={`rate-${room.id}`}>
             <Input
               id={`rate-${room.id}`}
@@ -793,82 +1060,70 @@ function DialogRoomRow({
             />
           </Field>
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        <div className="w-40">
+          <Field label="Status" htmlFor={`st-${room.id}`}>
+            <Select
+              id={`st-${room.id}`}
+              value={room.status}
+              disabled={statusMutation.isPending}
+              onChange={(e) =>
+                statusMutation.mutate({
+                  roomId: room.id,
+                  status: e.target.value as ReservationRoomStatus,
+                })
+              }
+            >
+              {ROOM_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace(/_/g, " ")}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <div className="flex h-9 items-center gap-1">
+          {statusMutation.isPending && <Spinner />}
+          {canRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Remove room"
+              title="Remove room"
+              disabled={removeMutation.isPending}
+              onClick={() => removeMutation.mutate(room.id)}
+            >
+              {removeMutation.isPending ? (
+                <Spinner />
+              ) : (
+                <Trash2 className="h-4 w-4 text-destructive" />
+              )}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {/* Save/Reset only surface once something actually changed */}
+      {dirty && (
         <div className="flex justify-end gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setEditing(false)}
+            onClick={reset}
             disabled={detailsMutation.isPending}
           >
-            Cancel
+            Reset
           </Button>
           <Button type="submit" size="sm" disabled={detailsMutation.isPending}>
             {detailsMutation.isPending && <Spinner />}
             Save
           </Button>
         </div>
-      </form>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">Room {room.room_number ?? "—"}</span>
-          <StatusBadge status={room.status} />
-        </div>
-        <div className="mt-0.5 text-sm text-muted-foreground">
-          {formatDate(room.check_in)} → {formatDate(room.check_out)} ·{" "}
-          {nights(room.check_in, room.check_out)} night
-          {nights(room.check_in, room.check_out) === 1 ? "" : "s"} ·{" "}
-          {formatMoney(room.rate_cents)}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {statusMutation.isPending && <Spinner />}
-        <Select
-          className="w-36"
-          value={room.status}
-          disabled={statusMutation.isPending}
-          onChange={(e) =>
-            statusMutation.mutate({
-              roomId: room.id,
-              status: e.target.value as ReservationRoomStatus,
-            })
-          }
-        >
-          {ROOM_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s.replace(/_/g, " ")}
-            </option>
-          ))}
-        </Select>
-        <Button type="button" variant="ghost" size="sm" onClick={startEdit}>
-          Edit
-        </Button>
-        {canRemove && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Remove room"
-            title="Remove room"
-            disabled={removeMutation.isPending}
-            onClick={() => removeMutation.mutate(room.id)}
-          >
-            {removeMutation.isPending ? (
-              <Spinner />
-            ) : (
-              <Trash2 className="h-4 w-4 text-destructive" />
-            )}
-          </Button>
-        )}
-      </div>
-    </div>
+      )}
+    </form>
   );
 }
 
@@ -1084,10 +1339,8 @@ function DialogNotes({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Notes
-      </div>
+    <section className="space-y-3">
+      <SectionHeader title="Notes" />
       <form onSubmit={onSubmit} className="space-y-2">
         <textarea
           value={body}
@@ -1120,6 +1373,6 @@ function DialogNotes({
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
