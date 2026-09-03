@@ -32,7 +32,7 @@ const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Bar colour per stay status. Cancelled / no-show never reach the client —
 // the timeline endpoint filters them out (the room is released).
 const BAR: Record<string, string> = {
-  confirmed: "bg-blue-500 hover:bg-blue-600",
+  confirmed: "bg-violet-500 hover:bg-violet-600",
   checked_in: "bg-emerald-500 hover:bg-emerald-600",
   checked_out: "bg-slate-400 hover:bg-slate-500",
 };

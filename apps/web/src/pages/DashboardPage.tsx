@@ -349,7 +349,7 @@ function statusMeta(status: ReservationRoomStatus): {
     case "no_show":
       return { icon: UserX, iconClass: "bg-amber-100 text-amber-600", title: "Guest no-show" };
     default:
-      return { icon: CheckCircle2, iconClass: "bg-blue-100 text-blue-600", title: "Reservation confirmed" };
+      return { icon: CheckCircle2, iconClass: "bg-violet-100 text-violet-600", title: "Reservation confirmed" };
   }
 }
 

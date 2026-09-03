@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
   CalendarRange,
@@ -10,7 +10,6 @@ import {
   Settings,
   LogOut,
   ClipboardList,
-  Hotel,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
@@ -64,10 +63,23 @@ export function Layout() {
           )}
         >
           {!collapsed && (
-            <>
-              <Hotel className="h-6 w-6 shrink-0 text-primary" />
+            <Link to="/" className="flex items-center gap-2">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-white">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="currentColor"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                </svg>
+              </span>
               <span className="text-lg font-semibold">HRS</span>
-            </>
+            </Link>
           )}
           <button
             onClick={toggleSidebar}
@@ -126,7 +138,7 @@ export function Layout() {
                   cn(
                     base,
                     isActive
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-neutral-900 text-white"
                       : "text-foreground hover:bg-accent",
                   )
                 }

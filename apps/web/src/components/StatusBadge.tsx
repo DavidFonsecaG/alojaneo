@@ -7,7 +7,7 @@ import type {
 type AnyStatus = ReservationRoomStatus | ReservationSummaryStatus;
 
 const CONFIG: Record<AnyStatus, { label: string; variant: BadgeProps["variant"] }> = {
-  confirmed: { label: "Confirmed", variant: "info" },
+  confirmed: { label: "Confirmed", variant: "default" },
   active: { label: "Check In", variant: "success" },
   checked_in: { label: "Checked in", variant: "success" },
   checked_out: { label: "Checked out", variant: "neutral" },
