@@ -49,7 +49,9 @@ export function RatePlansPage() {
   const hasTypes = types.length > 0;
 
   return (
-    <>
+    // Same shell as the Reservations/Calendar pages: header on the canvas,
+    // only the content card scrolls.
+    <div className="flex h-full flex-col gap-3">
       <PageHeader
         title="Rate plans"
         description="Pricing plans per room type"
@@ -67,96 +69,96 @@ export function RatePlansPage() {
         }
       />
 
-      <div>
-        {ratePlans.isLoading ? (
+      {ratePlans.isLoading ? (
+        <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
           <CenteredSpinner label="Loading rate plans…" />
-        ) : ratePlans.isError ? (
-          <ErrorBox message={(ratePlans.error as Error).message} />
-        ) : !hasTypes ? (
-          <EmptyBox
-            icon={<Tags className="h-8 w-8 text-muted-foreground" />}
-            title="Create a room type first"
-            body="Rate plans price a room type. Add one on the Rooms page first."
-          />
-        ) : !ratePlans.data || ratePlans.data.length === 0 ? (
-          <EmptyBox
-            icon={<Tags className="h-8 w-8 text-muted-foreground" />}
-            title="No rate plans yet"
-            body="Add your first rate plan with the button above."
-          />
-        ) : (
-          <div className="rounded-lg border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Room type</TableHead>
-                  <TableHead className="text-right">Base rate</TableHead>
-                  <TableHead>Online</TableHead>
-                  <TableHead>Cancellation</TableHead>
-                  <TableHead>Stay</TableHead>
-                  <TableHead>Validity</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+        </div>
+      ) : ratePlans.isError ? (
+        <ErrorBox message={(ratePlans.error as Error).message} />
+      ) : !hasTypes ? (
+        <EmptyBox
+          icon={<Tags className="h-8 w-8 text-muted-foreground" />}
+          title="Create a room type first"
+          body="Rate plans price a room type. Add one on the Rooms page first."
+        />
+      ) : !ratePlans.data || ratePlans.data.length === 0 ? (
+        <EmptyBox
+          icon={<Tags className="h-8 w-8 text-muted-foreground" />}
+          title="No rate plans yet"
+          body="Add your first rate plan with the button above."
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
+          <Table containerClassName="min-h-0 flex-1">
+            <TableHeader className="sticky top-0 z-10 bg-card">
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Room type</TableHead>
+                <TableHead className="text-right">Base rate</TableHead>
+                <TableHead>Online</TableHead>
+                <TableHead>Cancellation</TableHead>
+                <TableHead>Stay</TableHead>
+                <TableHead>Validity</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ratePlans.data.map((rp) => (
+                <TableRow key={rp.id}>
+                  <TableCell className="font-medium">{rp.name}</TableCell>
+                  <TableCell>{typeName(rp.room_type_id)}</TableCell>
+                  <TableCell className="text-right">
+                    {formatMoney(rp.base_rate_cents, rp.currency)}
+                  </TableCell>
+                  <TableCell>
+                    {rp.bookable_online ? (
+                      <Badge variant="success">Online</Badge>
+                    ) : (
+                      <Badge variant="neutral">Offline</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="capitalize text-muted-foreground">
+                    {rp.cancellation_policy?.replace(/_/g, " ") ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {rp.min_stay || rp.max_stay
+                      ? `${rp.min_stay ?? 1}–${rp.max_stay ?? "∞"}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {rp.valid_from || rp.valid_to
+                      ? `${formatDate(rp.valid_from)} – ${formatDate(rp.valid_to)}`
+                      : "Always"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditing(rp);
+                          setFormOpen(true);
+                        }}
+                        aria-label="Edit rate plan"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeleting(rp)}
+                        aria-label="Delete rate plan"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ratePlans.data.map((rp) => (
-                  <TableRow key={rp.id}>
-                    <TableCell className="font-medium">{rp.name}</TableCell>
-                    <TableCell>{typeName(rp.room_type_id)}</TableCell>
-                    <TableCell className="text-right">
-                      {formatMoney(rp.base_rate_cents, rp.currency)}
-                    </TableCell>
-                    <TableCell>
-                      {rp.bookable_online ? (
-                        <Badge variant="success">Online</Badge>
-                      ) : (
-                        <Badge variant="neutral">Offline</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="capitalize text-muted-foreground">
-                      {rp.cancellation_policy?.replace(/_/g, " ") ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {rp.min_stay || rp.max_stay
-                        ? `${rp.min_stay ?? 1}–${rp.max_stay ?? "∞"}`
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {rp.valid_from || rp.valid_to
-                        ? `${formatDate(rp.valid_from)} – ${formatDate(rp.valid_to)}`
-                        : "Always"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditing(rp);
-                            setFormOpen(true);
-                          }}
-                          aria-label="Edit rate plan"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleting(rp)}
-                          aria-label="Delete rate plan"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {formOpen && (
         <RatePlanFormDialog
@@ -177,7 +179,7 @@ export function RatePlansPage() {
           deletePlan.mutate(deleting.id, { onSuccess: () => setDeleting(null) })
         }
       />
-    </>
+    </div>
   );
 }
 
