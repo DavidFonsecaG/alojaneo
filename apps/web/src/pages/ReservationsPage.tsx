@@ -34,7 +34,9 @@ export function ReservationsPage() {
   );
 
   return (
-    <>
+    // Mirrors the Timeline page: header on the canvas, and only the content
+    // card scrolls (flex-1 + min-h-0), never the whole main area.
+    <div className="flex h-full flex-col gap-3">
       <PageHeader
         title="Reservations"
         description="All bookings across your hotel"
@@ -59,81 +61,73 @@ export function ReservationsPage() {
         }
       />
 
-      <div>
-        {isLoading ? (
+      {isLoading ? (
+        <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
           <CenteredSpinner label="Loading reservations…" />
-        ) : isError ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-            {(error as Error).message}
-          </div>
-        ) : !data || data.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="rounded-lg border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Guest</TableHead>
-                  <TableHead>Check-in</TableHead>
-                  <TableHead>Check-out</TableHead>
-                  <TableHead>Nights</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+        </div>
+      ) : isError ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          {(error as Error).message}
+        </div>
+      ) : !data || data.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl bg-card text-center shadow-sm">
+          <CalendarDays className="mb-3 h-8 w-8 text-muted-foreground" />
+          <p className="font-medium">No reservations found</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Bookings will appear here as they come in.
+          </p>
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
+          <Table containerClassName="min-h-0 flex-1">
+            <TableHeader className="sticky top-0 z-10 bg-card">
+              <TableRow>
+                <TableHead>Guest</TableHead>
+                <TableHead>Check-in</TableHead>
+                <TableHead>Check-out</TableHead>
+                <TableHead>Nights</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((r) => (
+                <TableRow
+                  key={r.id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/reservations/${r.id}`)}
+                >
+                  <TableCell>
+                    <div className="font-medium">
+                      {r.guest_first_name} {r.guest_last_name}
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {r.booking_ref}
+                    </div>
+                  </TableCell>
+                  <TableCell>{formatDate(r.check_in)}</TableCell>
+                  <TableCell>{formatDate(r.check_out)}</TableCell>
+                  <TableCell>
+                    {r.check_in && r.check_out
+                      ? nights(r.check_in, r.check_out)
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={r.status as ReservationSummaryStatus} />
+                  </TableCell>
+                  <TableCell className="capitalize text-muted-foreground">
+                    {r.source.replace(/_/g, " ")}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatMoney(r.total_amount_cents)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.map((r) => (
-                  <TableRow
-                    key={r.id}
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/reservations/${r.id}`)}
-                  >
-                    <TableCell>
-                      <div className="font-medium">
-                        {r.guest_first_name} {r.guest_last_name}
-                      </div>
-                      <div className="font-mono text-xs text-muted-foreground">
-                        {r.booking_ref}
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatDate(r.check_in)}</TableCell>
-                    <TableCell>{formatDate(r.check_out)}</TableCell>
-                    <TableCell>
-                      {r.check_in && r.check_out
-                        ? nights(r.check_in, r.check_out)
-                        : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge
-                        status={r.status as ReservationSummaryStatus}
-                      />
-                    </TableCell>
-                    <TableCell className="capitalize text-muted-foreground">
-                      {r.source.replace(/_/g, " ")}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatMoney(r.total_amount_cents)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-20 text-center">
-      <CalendarDays className="mb-3 h-8 w-8 text-muted-foreground" />
-      <p className="font-medium">No reservations found</p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Bookings will appear here as they come in.
-      </p>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }
