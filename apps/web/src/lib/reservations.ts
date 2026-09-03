@@ -5,6 +5,8 @@ import {
 } from "@tanstack/react-query";
 import { api } from "./api";
 import type {
+  Payment,
+  PaymentMethod,
   ReservationDetail,
   ReservationListItem,
   ReservationNote,
@@ -162,6 +164,37 @@ export function useRemoveReservationRoom(reservationId: string) {
       qc.invalidateQueries({ queryKey: ["reservation", reservationId] });
       qc.invalidateQueries({ queryKey: ["reservations"] });
       qc.invalidateQueries({ queryKey: ["timeline"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+// Payments recorded against a reservation — powers the booking-summary panel
+// (total received / outstanding) in the reservation popup.
+export function usePayments(reservationId: string | undefined) {
+  return useQuery({
+    queryKey: ["payments", reservationId],
+    queryFn: () =>
+      api.get<Payment[]>(`/payments?reservationId=${reservationId}`),
+    enabled: !!reservationId,
+  });
+}
+
+export interface CreatePaymentInput {
+  amountCents: number;
+  method: PaymentMethod;
+  reference?: string;
+}
+
+export function useCreatePayment(reservationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePaymentInput) =>
+      api.post<Payment>("/payments", { reservationId, ...input }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payments", reservationId] });
+      qc.invalidateQueries({ queryKey: ["reservation", reservationId] });
+      qc.invalidateQueries({ queryKey: ["reservations"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });

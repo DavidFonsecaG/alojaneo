@@ -103,6 +103,21 @@ export interface ReservationDetail {
   notes: ReservationNote[];
 }
 
+export type PaymentMethod = "cash" | "credit_card" | "bank_transfer";
+export type PaymentStatus = "pending" | "completed" | "refunded" | "failed";
+
+// GET /payments?reservationId= — payments recorded against a reservation.
+export interface Payment {
+  id: string;
+  reservation_id: string;
+  amount_cents: number;
+  currency: string;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  reference: string | null;
+  created_at: string;
+}
+
 export interface Guest {
   id: string;
   first_name: string;
