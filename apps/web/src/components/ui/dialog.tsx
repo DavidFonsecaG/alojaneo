@@ -16,6 +16,11 @@ interface DialogProps {
    * the button's `form="<id>"` attribute, since the two live in sibling DOM.
    */
   footer?: ReactNode;
+  /**
+   * Paint the header in the brand accent (primary background, light text) with
+   * a slightly larger title/subtitle. Opt-in per dialog; others stay plain.
+   */
+  headerAccent?: boolean;
   className?: string;
 }
 
@@ -33,6 +38,7 @@ export function Dialog({
   description,
   children,
   footer,
+  headerAccent,
   className,
 }: DialogProps) {
   useEffect(() => {
@@ -63,25 +69,47 @@ export function Dialog({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg",
+          // Borderless card with corners matching the app's cards (rounded-2xl),
+          // lifted off the backdrop by the shadow alone.
+          "relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-card shadow-xl",
           className,
         )}
       >
         {/* Header — fixed */}
-        <div className="flex shrink-0 items-start justify-between border-b border-border px-5 py-4">
+        <div
+          className={cn(
+            "flex shrink-0 items-start justify-between border-b border-border px-5 py-4",
+            headerAccent && "border-b-0 bg-neutral-900 text-white",
+          )}
+        >
           <div>
-            <h2 className="font-semibold leading-none tracking-tight">
+            <h2
+              className={cn(
+                "font-semibold leading-tight tracking-tight",
+                headerAccent && "text-lg",
+              )}
+            >
               {title}
             </h2>
             {description && (
-              <p className="mt-1.5 text-sm text-muted-foreground">
+              <p
+                className={cn(
+                  "mt-1.5",
+                  headerAccent
+                    ? "text-[0.95rem] text-white/85"
+                    : "text-sm text-muted-foreground",
+                )}
+              >
                 {description}
               </p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
+            className={cn(
+              "text-muted-foreground hover:text-foreground",
+              headerAccent && "text-white/80 hover:text-white",
+            )}
             aria-label="Close"
           >
             <X className="h-4 w-4" />
