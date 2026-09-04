@@ -32,9 +32,11 @@ const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Bar colour per stay status. Cancelled / no-show never reach the client —
 // the timeline endpoint filters them out (the room is released).
 const BAR: Record<string, string> = {
-  confirmed: "bg-violet-500 hover:bg-violet-600",
-  checked_in: "bg-emerald-500 hover:bg-emerald-600",
-  checked_out: "bg-slate-400 hover:bg-slate-500",
+  confirmed: "bg-primary/25 text-primary ring-primary/30 hover:bg-primary/35",
+  checked_in:
+    "bg-emerald-500/20 text-emerald-700 ring-emerald-500/30 hover:bg-emerald-500/30",
+  checked_out:
+    "bg-slate-500/20 text-slate-700 ring-slate-500/30 hover:bg-slate-500/30",
 };
 
 // Room operational status → the dot next to the room number.
@@ -609,8 +611,9 @@ function Lane({
                 10,
               )} → ${s.check_out.slice(0, 10)}`}
               className={cn(
-                "absolute inset-y-1.5 flex items-center overflow-hidden px-2 text-left text-xs font-medium text-white shadow-sm transition-colors",
-                BAR[s.status] ?? "bg-slate-500 hover:bg-slate-600",
+                "absolute inset-y-1.5 flex items-center overflow-hidden px-2 text-left text-xs font-medium ring-1 ring-inset transition-colors",
+                BAR[s.status] ??
+                  "bg-slate-500/20 text-slate-700 ring-slate-500/30 hover:bg-slate-500/30",
                 clippedL ? "rounded-l-none" : "rounded-l-md",
                 clippedR ? "rounded-r-none" : "rounded-r-md",
               )}
