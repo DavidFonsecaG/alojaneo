@@ -1,6 +1,14 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Plus,
+  Search,
+} from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
 import { CenteredSpinner } from "../components/ui/spinner";
@@ -219,8 +227,10 @@ export function TimelinePage() {
       : DEFAULT_DAY_W;
   const bodyWidth = LEFT_W + windowDays * dayW;
 
-  function shift(dir: -1 | 1) {
-    setStart((s) => midnight(new Date(s.getTime() + dir * windowDays * DAY_MS)));
+  // Positive = forward, negative = back. Paging uses ±windowDays, the
+  // single-day arrows use ±1.
+  function shift(days: number) {
+    setStart((s) => midnight(new Date(s.getTime() + days * DAY_MS)));
   }
 
   const loading = rooms.isLoading || timeline.isLoading;
@@ -312,25 +322,47 @@ export function TimelinePage() {
                   </Select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => shift(-1)}
-                  aria-label="Previous"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="w-44 text-center text-sm font-medium">
-                  {rangeLabel}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => shift(-windowDays)}
+                    aria-label={`Back ${windowDays} days`}
+                    title={`Back ${windowDays} days`}
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => shift(-1)}
+                    aria-label="Back one day"
+                    title="Back one day"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="w-44 text-center text-sm font-medium">
+                    {rangeLabel}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => shift(1)}
+                    aria-label="Forward one day"
+                    title="Forward one day"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => shift(windowDays)}
+                    aria-label={`Forward ${windowDays} days`}
+                    title={`Forward ${windowDays} days`}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => shift(1)}
-                  aria-label="Next"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
                 <Button
                   variant="default"
                   size="default"
