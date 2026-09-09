@@ -18,14 +18,14 @@ pnpm db:migrate             # run all migrations via drizzle-orm migrator
 Schema generation and inspection (run from `packages/db`):
 
 ```bash
-pnpm --filter @hrs/db generate   # generate SQL migration from schema.ts changes
-pnpm --filter @hrs/db studio     # open Drizzle Studio for DB inspection
+pnpm --filter @alojaneo/db generate   # generate SQL migration from schema.ts changes
+pnpm --filter @alojaneo/db studio     # open Drizzle Studio for DB inspection
 ```
 
 Run a single test by name:
 
 ```bash
-pnpm --filter @hrs/api exec vitest run -t "name of test"
+pnpm --filter @alojaneo/api exec vitest run -t "name of test"
 ```
 
 Tests require a running Postgres instance with all migrations applied:

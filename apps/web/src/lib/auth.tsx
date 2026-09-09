@@ -41,7 +41,8 @@ export interface SignupInput {
   password: string;
 }
 
-const PERMISSIONS_KEY = "hrs.permissions";
+const PERMISSIONS_KEY = "alojaneo.permissions";
+const LEGACY_PERMISSIONS_KEY = "hrs.permissions"; // pre-rebrand fallback
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -71,7 +72,9 @@ function userFromToken(token: string | null): AuthState | null {
 
 function loadPermissions(): Permissions {
   try {
-    const raw = localStorage.getItem(PERMISSIONS_KEY);
+    const raw =
+      localStorage.getItem(PERMISSIONS_KEY) ??
+      localStorage.getItem(LEGACY_PERMISSIONS_KEY);
     return raw ? (JSON.parse(raw) as Permissions) : null;
   } catch {
     return null;

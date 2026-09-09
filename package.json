@@ -1,10 +1,10 @@
 {
-  "name": "hotel-reservation-system",
+  "name": "alojaneo",
   "private": true,
   "scripts": {
-    "dev:api": "pnpm --filter @hrs/api dev",
-    "test": "pnpm --filter @hrs/api test",
-    "db:migrate": "pnpm --filter @hrs/db migrate"
+    "dev:api": "pnpm --filter @alojaneo/api dev",
+    "test": "pnpm --filter @alojaneo/api test",
+    "db:migrate": "pnpm --filter @alojaneo/db migrate"
   },
   "devDependencies": {
     "typescript": "^5.6.3"

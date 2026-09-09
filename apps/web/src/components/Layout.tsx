@@ -38,12 +38,12 @@ export function Layout() {
   const { user, logout } = useAuth();
 
   const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem("hrs.sidebar") === "collapsed",
+    () => localStorage.getItem("alojaneo.sidebar") === "collapsed",
   );
   const toggleSidebar = () =>
     setCollapsed((c) => {
       const next = !c;
-      localStorage.setItem("hrs.sidebar", next ? "collapsed" : "expanded");
+      localStorage.setItem("alojaneo.sidebar", next ? "collapsed" : "expanded");
       return next;
     });
 
@@ -77,7 +77,9 @@ export function Layout() {
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
               </svg>
             </span>
-            {!collapsed && <span className="text-lg font-semibold">Hospeda</span>}
+            {!collapsed && (
+              <span className="text-lg font-semibold">Alojaneo</span>
+            )}
           </Link>
           <button
             onClick={toggleSidebar}

@@ -3,7 +3,8 @@
 // and notifies a registered handler so the app can bounce to /login.
 
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
-const TOKEN_KEY = "hrs.token";
+const TOKEN_KEY = "alojaneo.token";
+const LEGACY_TOKEN_KEY = "hrs.token"; // pre-rebrand; migrated on read
 
 export class ApiError extends Error {
   constructor(
@@ -22,7 +23,17 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
 }
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) return token;
+  // Migrate a session stored under the old key so the rebrand doesn't log
+  // existing users out.
+  const legacy = localStorage.getItem(LEGACY_TOKEN_KEY);
+  if (legacy) {
+    localStorage.setItem(TOKEN_KEY, legacy);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    return legacy;
+  }
+  return null;
 }
 
 export function setToken(token: string | null) {
