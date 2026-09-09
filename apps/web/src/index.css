@@ -12,7 +12,7 @@
     --foreground: 0 0% 9%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 9%;
-    --primary: 252 80% 52%;
+    --primary: 0 0% 9%;
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 9%;
@@ -24,7 +24,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 252 80% 52%;
+    --ring: 217 91% 60%;
     --radius: 0.5rem;
   }
 
@@ -38,5 +38,23 @@
     font-family: "Inter Variable", ui-sans-serif, system-ui, -apple-system,
       "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* Thin, rounded scrollbars in the brand accent (matches
+     [&::-webkit-scrollbar]:w-1.5 / thumb rounded bg-primary/50 / track bg-background). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--background));
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: hsl(var(--primary) / 0.5);
+  }
+  *::-webkit-scrollbar-track {
+    background-color: hsl(var(--background));
   }
 }
