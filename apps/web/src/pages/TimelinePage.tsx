@@ -22,9 +22,9 @@ import type { Room, TimelineStay } from "../types";
 const LEFT_W = 164; // frozen room column
 const MIN_DAY_W = 52; // below this we scroll instead of shrinking (keeps the date on one line)
 const DEFAULT_DAY_W = 112; // used for the first paint, before the card is measured
-const FIT_SLACK = 2; // px kept free so a fitting range never flashes a phantom scrollbar
-const ROW_H = 44; // one room lane
-const HEADER_H = 60; // date header lane — a touch taller than the room lanes
+const FIT_SLACK = 0; // px kept free so a fitting range never flashes a phantom scrollbar
+const ROW_H = 52; // one room lane
+const HEADER_H = 62; // date header lane — a touch taller than the room lanes
 const DAY_MS = 86_400_000;
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -32,11 +32,9 @@ const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Bar colour per stay status. Cancelled / no-show never reach the client —
 // the timeline endpoint filters them out (the room is released).
 const BAR: Record<string, string> = {
-  confirmed: "bg-primary/25 text-primary ring-primary/30 hover:bg-primary/35",
-  checked_in:
-    "bg-emerald-500/20 text-emerald-700 ring-emerald-500/30 hover:bg-emerald-500/30",
-  checked_out:
-    "bg-slate-500/20 text-slate-700 ring-slate-500/30 hover:bg-slate-500/30",
+  confirmed: "bg-sky-400 hover:bg-sky-500",
+  checked_in: "bg-teal-400 hover:bg-teal-500",
+  checked_out: "bg-neutral-400 hover:bg-neutral-500",
 };
 
 // Room operational status → the dot next to the room number.
@@ -94,7 +92,7 @@ function ColumnTints({
             key={i}
             className={cn(
               "pointer-events-none absolute inset-y-0",
-              isToday ? "bg-primary/10" : "bg-muted/40",
+              isToday ? "bg-sky-100/40" : "bg-muted/40",
             )}
             style={{ left: i * dayW, width: dayW }}
           />
@@ -109,7 +107,7 @@ export function TimelinePage() {
   const today = midnight(new Date());
   // Open a few days before today so recent check-outs are visible on load,
   // rather than sitting off the left edge.
-  const LEAD_DAYS = 3;
+  const LEAD_DAYS = 1;
   const defaultStart = midnight(new Date(today.getTime() - LEAD_DAYS * DAY_MS));
 
   const [windowDays, setWindowDays] = useState(14);
@@ -239,15 +237,15 @@ export function TimelinePage() {
       </div>
 
       {loading ? (
-        <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
+        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-sm">
           <CenteredSpinner label="Loading calendar…" />
         </div>
       ) : noRooms ? (
-        <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
+        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-sm">
           <div className="p-8 text-center text-sm text-muted-foreground">
             No rooms yet. Add rooms on the{" "}
             <button
-              className="font-medium text-primary hover:underline"
+              className="font-medium text-blue-500 hover:underline"
               onClick={() => navigate("/rooms")}
             >
               Rooms
@@ -257,7 +255,7 @@ export function TimelinePage() {
         </div>
       ) : (
         <>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-card shadow-sm">
             {/* Controls — the card header under the title */}
             <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
               {/* Search rooms */}
@@ -334,7 +332,7 @@ export function TimelinePage() {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="default"
                   size="default"
                   onClick={() => setStart(defaultStart)}
                 >
@@ -364,29 +362,32 @@ export function TimelinePage() {
                         className={cn(
                           "flex shrink-0 flex-col justify-center whitespace-nowrap border-r border-border px-2 text-left text-xs leading-tight",
                           weekend && "bg-muted/40",
-                          isToday && "bg-primary/10",
+                          isToday && "bg-sky-100/40",
                         )}
                         style={{ width: dayW }}
                       >
                         <div
                           className={cn(
                             isToday
-                              ? "font-bold text-primary"
+                              ? "text-sky-400"
                               : "text-muted-foreground",
                           )}
                         >
                           {WEEKDAY[d.getDay()]}
                         </div>
-                        <div
-                          className={cn(
-                            "font-semibold",
-                            isToday && "font-bold text-primary",
-                          )}
-                        >
-                          {d.toLocaleString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "font-semibold",
+                              isToday && "font-bold text-sky-400",
+                            )}
+                          >
+                            {d.toLocaleString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </div>
+                          {isToday && <div className="w-1.5 h-1.5 rounded-full bg-sky-400"></div>}
                         </div>
                       </div>
                     );
@@ -611,11 +612,11 @@ function Lane({
                 10,
               )} → ${s.check_out.slice(0, 10)}`}
               className={cn(
-                "absolute inset-y-1.5 flex items-center overflow-hidden px-2 text-left text-xs font-medium ring-1 ring-inset transition-colors",
+                "absolute inset-y-1.5 flex items-center overflow-hidden px-2 text-left text-xs text-white shadow-md font-medium transition-colors",
                 BAR[s.status] ??
-                  "bg-slate-500/20 text-slate-700 ring-slate-500/30 hover:bg-slate-500/30",
-                clippedL ? "rounded-l-none" : "rounded-l-md",
-                clippedR ? "rounded-r-none" : "rounded-r-md",
+                  "bg-slate-100 text-slate-600 ring-slate-200 hover:bg-slate-200",
+                clippedL ? "rounded-l-none" : "rounded-l-xl",
+                clippedR ? "rounded-r-none" : "rounded-r-xl",
               )}
               style={{
                 left: left + (clippedL ? 0 : GAP),

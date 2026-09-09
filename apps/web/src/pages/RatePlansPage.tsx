@@ -70,7 +70,7 @@ export function RatePlansPage() {
       />
 
       {ratePlans.isLoading ? (
-        <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
+        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-sm">
           <CenteredSpinner label="Loading rate plans…" />
         </div>
       ) : ratePlans.isError ? (
@@ -88,7 +88,7 @@ export function RatePlansPage() {
           body="Add your first rate plan with the button above."
         />
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-card shadow-sm">
           <Table containerClassName="min-h-0 flex-1">
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow>

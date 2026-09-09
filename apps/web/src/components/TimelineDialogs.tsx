@@ -314,7 +314,7 @@ export function QuickCreateDialog({
                         onClick={() => setGuestMode("existing")}
                         className={
                           guestMode === "existing"
-                            ? "font-medium text-primary"
+                            ? "font-medium text-blue-500"
                             : "text-muted-foreground hover:text-foreground"
                         }
                       >
@@ -326,7 +326,7 @@ export function QuickCreateDialog({
                         onClick={() => setGuestMode("new")}
                         className={
                           guestMode === "new"
-                            ? "font-medium text-primary"
+                            ? "font-medium text-blue-500"
                             : "text-muted-foreground hover:text-foreground"
                         }
                       >
@@ -584,7 +584,7 @@ export function ReservationDetailDialog({
           <Link
             to={`/reservations/${data.id}`}
             onClick={onClose}
-            className="text-sm font-medium text-primary hover:underline"
+            className="text-sm font-medium text-blue-500 hover:underline"
           >
             Open full page →
           </Link>
@@ -632,7 +632,7 @@ export function ReservationDetailDialog({
                   <button
                     type="button"
                     onClick={() => setAdding(true)}
-                    className="text-sm font-medium text-primary hover:underline"
+                    className="text-sm font-medium text-blue-500 hover:underline"
                   >
                     + Add a room
                   </button>
@@ -1347,7 +1347,7 @@ function DialogNotes({
           onChange={(e) => setBody(e.target.value)}
           rows={2}
           placeholder="Add a note…"
-          className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <Button
           type="submit"

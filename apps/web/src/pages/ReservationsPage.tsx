@@ -62,7 +62,7 @@ export function ReservationsPage() {
       />
 
       {isLoading ? (
-        <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
+        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-sm">
           <CenteredSpinner label="Loading reservations…" />
         </div>
       ) : isError ? (
@@ -70,7 +70,7 @@ export function ReservationsPage() {
           {(error as Error).message}
         </div>
       ) : !data || data.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl bg-card text-center shadow-sm">
+        <div className="flex flex-1 flex-col items-center justify-center rounded-3xl bg-card text-center shadow-sm">
           <CalendarDays className="mb-3 h-8 w-8 text-muted-foreground" />
           <p className="font-medium">No reservations found</p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -78,7 +78,7 @@ export function ReservationsPage() {
           </p>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-card shadow-sm">
           <Table containerClassName="min-h-0 flex-1">
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow>

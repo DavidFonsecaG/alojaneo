@@ -46,7 +46,7 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <div className={cn("rounded-2xl bg-card p-5 shadow-sm", className)}>
+    <div className={cn("rounded-3xl bg-card p-5 shadow-sm", className)}>
       {children}
     </div>
   );
@@ -243,7 +243,7 @@ function ArrivingTodayCard({
         <h2 className="text-lg font-semibold">Arriving Today</h2>
         <Link
           to="/reservations"
-          className="text-sm font-medium text-primary hover:underline"
+          className="text-sm font-medium text-blue-500 hover:underline"
         >
           View all
         </Link>

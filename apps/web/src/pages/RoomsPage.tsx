@@ -219,7 +219,7 @@ export function RoomsPage() {
                 onClick={() => setFilter(f.key)}
                 aria-pressed={active}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
                   active
                     ? "border-transparent bg-neutral-900 text-white"
                     : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -235,7 +235,7 @@ export function RoomsPage() {
 
       {/* Tiles */}
       {rooms.isLoading ? (
-        <div className="flex flex-1 items-center justify-center rounded-2xl bg-card shadow-sm">
+        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-sm">
           <CenteredSpinner label="Loading rooms…" />
         </div>
       ) : rooms.isError ? (
@@ -333,7 +333,7 @@ function StatCard({
   valueClass?: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-card p-4 shadow-sm">
+    <div className="flex items-center justify-between rounded-3xl bg-card p-4 shadow-sm">
       <div>
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}
@@ -376,7 +376,7 @@ function RoomTile({
       type="button"
       onClick={onOpen}
       className={cn(
-        "group flex flex-col rounded-2xl border border-transparent p-4 text-left shadow-sm ring-1 ring-border transition-shadow hover:shadow-md",
+        "group flex flex-col rounded-3xl border border-transparent p-4 text-left shadow-sm ring-1 ring-border transition-shadow hover:shadow-md",
         meta.tile,
       )}
     >

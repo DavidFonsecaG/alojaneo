@@ -154,7 +154,7 @@ export function LoginPage() {
                 No account yet?{" "}
                 <button
                   type="button"
-                  className="font-medium text-primary hover:underline"
+                  className="font-medium text-blue-500 hover:underline"
                   onClick={() => {
                     setMode("signup");
                     setError(null);
@@ -168,7 +168,7 @@ export function LoginPage() {
                 Already have an account?{" "}
                 <button
                   type="button"
-                  className="font-medium text-primary hover:underline"
+                  className="font-medium text-blue-500 hover:underline"
                   onClick={() => {
                     setMode("login");
                     setError(null);

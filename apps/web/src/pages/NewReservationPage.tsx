@@ -235,7 +235,7 @@ export function NewReservationPage() {
                       onClick={() => setGuestMode("existing")}
                       className={
                         guestMode === "existing"
-                          ? "font-medium text-primary"
+                          ? "font-medium text-blue-500"
                           : "text-muted-foreground hover:text-foreground"
                       }
                     >
@@ -247,7 +247,7 @@ export function NewReservationPage() {
                       onClick={() => setGuestMode("new")}
                       className={
                         guestMode === "new"
-                          ? "font-medium text-primary"
+                          ? "font-medium text-blue-500"
                           : "text-muted-foreground hover:text-foreground"
                       }
                     >

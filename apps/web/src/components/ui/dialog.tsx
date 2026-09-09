@@ -60,7 +60,7 @@ export function Dialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-primary/20"
         onClick={onClose}
         aria-hidden
       />
@@ -69,9 +69,9 @@ export function Dialog({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          // Borderless card with corners matching the app's cards (rounded-2xl),
+          // Borderless card with corners matching the app's cards (rounded-3xl),
           // lifted off the backdrop by the shadow alone.
-          "relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-card shadow-xl",
+          "relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-card shadow-xl",
           className,
         )}
       >

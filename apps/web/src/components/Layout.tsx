@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
-  CalendarRange,
+  CalendarDays,
   BedDouble,
   Users,
   Tags,
@@ -25,7 +25,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
-  { to: "/timeline", label: "Calendar", icon: CalendarRange, enabled: true },
+  { to: "/timeline", label: "Calendar", icon: CalendarDays, enabled: true },
   { to: "/reservations", label: "Reservations", icon: ClipboardList, enabled: true },
   { to: "/rooms", label: "Rooms", icon: BedDouble, enabled: true },
   { to: "/rate-plans", label: "Rate plans", icon: Tags, enabled: true },
@@ -49,65 +49,63 @@ export function Layout() {
 
   return (
     // Everything floats as cards on a single soft-gray canvas.
-    <div className="flex h-screen gap-3 bg-[#f4f4f4] p-3">
+    <div className="flex h-screen bg-[#f4f4f4]">
       <aside
         className={cn(
-          "flex shrink-0 flex-col overflow-hidden rounded-2xl bg-card shadow-sm transition-[width] duration-200 ease-in-out",
-          collapsed ? "w-[76px]" : "w-64",
+          "flex shrink-0 flex-col overflow-hidden rounded-3xl shadow-sm transition-[width] duration-200 ease-in-out",
+          collapsed ? "w-[76px]" : "w-52",
         )}
       >
         <div
           className={cn(
-            "flex h-16 items-center px-4",
+            "relative flex h-16 items-center px-4",
             collapsed ? "justify-center" : "gap-2",
           )}
         >
-          {!collapsed && (
-            <Link to="/" className="flex items-center gap-2">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-white">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5"
-                  fill="currentColor"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                </svg>
-              </span>
-              <span className="text-lg font-semibold">HRS</span>
-            </Link>
-          )}
+          <Link to="/" className="flex items-center gap-2 mt-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="currentColor"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              </svg>
+            </span>
+            {!collapsed && <span className="text-lg font-semibold">Hospeda</span>}
+          </Link>
           <button
             onClick={toggleSidebar}
             className={cn(
-              "rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+              "absolute right-2 top-12 rounded-full p-1 text-muted-foreground transition-colors bg-card shadow hover:text-primary",
               !collapsed && "ml-auto",
             )}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={collapsed ? "Expand" : "Collapse"}
           >
             {collapsed ? (
-              <ChevronsRight className="h-4 w-4" />
+              <ChevronsRight className="h-3 w-3" />
             ) : (
-              <ChevronsLeft className="h-4 w-4" />
+              <ChevronsLeft className="h-3 w-3" />
             )}
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1.5 overflow-y-auto p-3">
+        <nav className="flex-1 space-y-1.5 overflow-y-auto p-3 pt-5">
           {NAV.map((item) => {
             const Icon = item.icon;
             // Same height in both states; when collapsed each item is a
             // square that shows only its icon.
             const shape = collapsed
-              ? "mx-auto h-11 w-11 justify-center"
-              : "h-11 gap-3 px-3";
+              ? "mx-auto h-10 w-10 justify-center"
+              : "h-11 gap-4 px-3";
             const base = cn(
-              "flex items-center rounded-lg text-[15px] font-medium transition-colors",
+              "flex items-center rounded-xl text-sm font-medium transition-colors",
               shape,
             );
             if (!item.enabled) {
@@ -117,13 +115,10 @@ export function Layout() {
                   className={cn(base, "cursor-not-allowed text-muted-foreground/50")}
                   title={collapsed ? `${item.label} (coming soon)` : "Coming soon"}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
+                  <Icon className="h-4 w-4 shrink-0" />
                   {!collapsed && (
                     <>
                       <span>{item.label}</span>
-                      <span className="ml-auto text-[10px] uppercase tracking-wide">
-                        Soon
-                      </span>
                     </>
                   )}
                 </div>
@@ -138,12 +133,12 @@ export function Layout() {
                   cn(
                     base,
                     isActive
-                      ? "bg-neutral-900 text-white"
-                      : "text-foreground hover:bg-accent",
+                      ? "bg-card text-primary shadow"
+                      : "text-muted-foreground hover:text-primary",
                   )
                 }
               >
-                <Icon className="h-5 w-5 shrink-0" />
+                <Icon className="h-4 w-4 shrink-0" />
                 {!collapsed && <span>{item.label}</span>}
               </NavLink>
             );
@@ -179,7 +174,7 @@ export function Layout() {
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto pl-3 pt-3">
+      <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 py-3">
         <Outlet />
       </main>
     </div>
