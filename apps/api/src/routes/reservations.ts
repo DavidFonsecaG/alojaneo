@@ -186,6 +186,7 @@ export async function reservationRoutes(app: FastifyInstance) {
           r.created_at,
           g.first_name as guest_first_name,
           g.last_name as guest_last_name,
+          (select count(*)::int from reservation_rooms rr where rr.reservation_id = r.id) as room_count,
           (select min(rr.check_in) from reservation_rooms rr where rr.reservation_id = r.id) as check_in,
           (select max(rr.check_out) from reservation_rooms rr where rr.reservation_id = r.id) as check_out,
           case

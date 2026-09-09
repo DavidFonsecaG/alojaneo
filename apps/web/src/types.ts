@@ -44,6 +44,7 @@ export interface ReservationListItem {
   created_at: string;
   guest_first_name: string;
   guest_last_name: string;
+  room_count: number;
   check_in: string | null;
   check_out: string | null;
   status: ReservationSummaryStatus;

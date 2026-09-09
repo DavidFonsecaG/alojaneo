@@ -86,6 +86,7 @@ export function ReservationsPage() {
                 <TableHead>Check-in</TableHead>
                 <TableHead>Check-out</TableHead>
                 <TableHead>Nights</TableHead>
+                <TableHead>Rooms</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -113,6 +114,7 @@ export function ReservationsPage() {
                       ? nights(r.check_in, r.check_out)
                       : "—"}
                   </TableCell>
+                  <TableCell>{r.room_count}</TableCell>
                   <TableCell>
                     <StatusBadge status={r.status as ReservationSummaryStatus} />
                   </TableCell>
