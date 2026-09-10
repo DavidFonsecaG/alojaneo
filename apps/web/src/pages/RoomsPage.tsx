@@ -4,6 +4,7 @@ import {
   Plus,
   Pencil,
   Search,
+  ChevronDown,
   Building2,
   Users,
   CheckCircle2,
@@ -127,6 +128,16 @@ export function RoomsPage() {
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TileState | "all">("all");
+  const [collapsedFloors, setCollapsedFloors] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const toggleFloor = (floor: string) =>
+    setCollapsedFloors((prev) => {
+      const next = new Set(prev);
+      if (next.has(floor)) next.delete(floor);
+      else next.add(floor);
+      return next;
+    });
 
   const types = roomTypes.data ?? [];
   const hasTypes = types.length > 0;
@@ -279,29 +290,45 @@ export function RoomsPage() {
             </p>
           ) : (
             <div className="space-y-5 pb-1">
-              {byFloor.map(([floor, items]) => (
-                <section key={floor}>
-                  <div className="mb-2 flex items-center gap-2">
-                    <h3 className="text-sm font-semibold tracking-tight">
-                      {floor === "—" ? "Unassigned floor" : `Floor ${floor}`}
-                    </h3>
-                    <span className="text-xs text-muted-foreground">
-                      {items.length} room{items.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                    {items.map(({ room, stay, state }) => (
-                      <RoomTile
-                        key={room.id}
-                        room={room}
-                        stay={stay}
-                        state={state}
-                        onOpen={() => setActing({ room, stay, state })}
+              {byFloor.map(([floor, items]) => {
+                const isCollapsed = collapsedFloors.has(floor);
+                return (
+                  <section key={floor}>
+                    <button
+                      type="button"
+                      onClick={() => toggleFloor(floor)}
+                      aria-expanded={!isCollapsed}
+                      className="mb-2 flex w-full items-center gap-2 text-left"
+                    >
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          isCollapsed && "-rotate-90",
+                        )}
                       />
-                    ))}
-                  </div>
-                </section>
-              ))}
+                      <h3 className="text-sm font-semibold tracking-tight">
+                        {floor === "—" ? "Unassigned floor" : `Floor ${floor}`}
+                      </h3>
+                      <span className="text-xs text-muted-foreground">
+                        {items.length} room{items.length === 1 ? "" : "s"}
+                      </span>
+                    </button>
+                    {!isCollapsed && (
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                        {items.map(({ room, stay, state }) => (
+                          <RoomTile
+                            key={room.id}
+                            room={room}
+                            stay={stay}
+                            state={state}
+                            onOpen={() => setActing({ room, stay, state })}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>
@@ -339,6 +366,11 @@ function RoomActionsDialog({
 }) {
   const hk = useUpdateHousekeeping();
   const status = useUpdateRoomStatus(stay?.reservation_id ?? "");
+  // Track the selection locally so the highlight moves immediately — the `room`
+  // prop is a snapshot from the board and won't refresh while the dialog is open.
+  const [hkStatus, setHkStatus] = useState<HousekeepingStatus>(
+    room.housekeeping_status as HousekeepingStatus,
+  );
 
   return (
     <Dialog
@@ -415,10 +447,21 @@ function RoomActionsDialog({
                 key={s}
                 type="button"
                 disabled={hk.isPending}
-                onClick={() => hk.mutate({ id: room.id, status: s })}
+                onClick={() => {
+                  setHkStatus(s);
+                  hk.mutate(
+                    { id: room.id, status: s },
+                    {
+                      onError: () =>
+                        setHkStatus(
+                          room.housekeeping_status as HousekeepingStatus,
+                        ),
+                    },
+                  );
+                }}
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm capitalize transition-colors",
-                  room.housekeeping_status === s
+                  hkStatus === s
                     ? "border-transparent bg-neutral-900 text-white"
                     : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
