@@ -60,6 +60,13 @@ export async function publicBookingRoutes(app: FastifyInstance) {
           rt.id,
           rt.name,
           rt.max_occupancy,
+          rt.description,
+          rt.amenities,
+          (
+            select coalesce(json_agg(p.data_url order by p.sort_order, p.created_at), '[]'::json)
+            from room_type_photos p
+            where p.room_type_id = rt.id
+          ) as photos,
           (
             select count(*)::int
             from rooms r
@@ -109,6 +116,9 @@ export async function publicBookingRoutes(app: FastifyInstance) {
               id: rt.id,
               name: rt.name,
               maxOccupancy: rt.max_occupancy,
+              description: rt.description,
+              amenities: rt.amenities,
+              photos: rt.photos,
             },
             availableCount: rt.available_count,
             ratePlans: ratePlans.map((rp) => ({
