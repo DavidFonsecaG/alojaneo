@@ -37,7 +37,7 @@ export async function roomTypeRoutes(app: FastifyInstance) {
       tx`
         insert into room_types (hotel_id, name, max_occupancy, description, amenities)
         values (${req.hotelId}, ${body.name}, ${body.maxOccupancy},
-                ${body.description ?? null}, ${JSON.stringify(body.amenities)}::jsonb)
+                ${body.description ?? null}, ${tx.json(body.amenities)})
         returning id, name, max_occupancy, description, amenities, created_at
       `,
     );
@@ -55,7 +55,7 @@ export async function roomTypeRoutes(app: FastifyInstance) {
           name = ${body.name},
           max_occupancy = ${body.maxOccupancy},
           description = ${body.description ?? null},
-          amenities = ${JSON.stringify(body.amenities)}::jsonb
+          amenities = ${tx.json(body.amenities)}
         where id = ${id}
         returning id, name, max_occupancy, description, amenities, created_at
       `,
