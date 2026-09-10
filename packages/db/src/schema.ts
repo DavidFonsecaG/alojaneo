@@ -70,6 +70,25 @@ export const roomTypes = pgTable("room_types", {
     .references(() => hotels.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   maxOccupancy: integer("max_occupancy").notNull().default(2),
+  description: text("description"),
+  amenities: jsonb("amenities").notNull().default([]).$type<string[]>(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// Marketing photos for a room type. MVP stores the image inline as a base64
+// data URL; see 0006_room_type_media.sql for the production storage TODO.
+export const roomTypePhotos = pgTable("room_type_photos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  hotelId: uuid("hotel_id")
+    .notNull()
+    .references(() => hotels.id, { onDelete: "cascade" }),
+  roomTypeId: uuid("room_type_id")
+    .notNull()
+    .references(() => roomTypes.id, { onDelete: "cascade" }),
+  dataUrl: text("data_url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
