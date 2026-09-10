@@ -2,6 +2,10 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { withTenant } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { requirePermission } from "../middleware/requirePermission.js";
+
+// Room-type setup (create/edit + photos) is an admin/manage task.
+const canManageRooms = requirePermission("rooms", "manage");
 
 const roomTypeBodySchema = z.object({
   name: z.string().min(1),
@@ -30,7 +34,7 @@ export async function roomTypeRoutes(app: FastifyInstance) {
     );
   });
 
-  app.post("/room-types", async (req, reply) => {
+  app.post("/room-types", { preHandler: canManageRooms }, async (req, reply) => {
     const body = roomTypeBodySchema.parse(req.body);
 
     const [roomType] = await withTenant(req.hotelId, (tx) =>
@@ -45,25 +49,30 @@ export async function roomTypeRoutes(app: FastifyInstance) {
     return reply.code(201).send(roomType);
   });
 
-  app.put("/room-types/:id", async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const body = roomTypeBodySchema.parse(req.body);
+  app.put(
+    "/room-types/:id",
+    { preHandler: canManageRooms },
+    async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const body = roomTypeBodySchema.parse(req.body);
 
-    const [roomType] = await withTenant(req.hotelId, (tx) =>
-      tx`
-        update room_types set
-          name = ${body.name},
-          max_occupancy = ${body.maxOccupancy},
-          description = ${body.description ?? null},
-          amenities = ${tx.json(body.amenities)}
-        where id = ${id}
-        returning id, name, max_occupancy, description, amenities, created_at
-      `,
-    );
+      const [roomType] = await withTenant(req.hotelId, (tx) =>
+        tx`
+          update room_types set
+            name = ${body.name},
+            max_occupancy = ${body.maxOccupancy},
+            description = ${body.description ?? null},
+            amenities = ${tx.json(body.amenities)}
+          where id = ${id}
+          returning id, name, max_occupancy, description, amenities, created_at
+        `,
+      );
 
-    if (!roomType) return reply.code(404).send({ error: "Room type not found" });
-    return roomType;
-  });
+      if (!roomType)
+        return reply.code(404).send({ error: "Room type not found" });
+      return roomType;
+    },
+  );
 
   // ── Photos ─────────────────────────────────────────────────────────
   app.get("/room-types/:id/photos", async (req) => {
@@ -78,7 +87,7 @@ export async function roomTypeRoutes(app: FastifyInstance) {
 
   app.post(
     "/room-types/:id/photos",
-    { bodyLimit: PHOTO_BODY_LIMIT },
+    { bodyLimit: PHOTO_BODY_LIMIT, preHandler: canManageRooms },
     async (req, reply) => {
       const { id } = req.params as { id: string };
       const body = photoBodySchema.parse(req.body);
@@ -104,13 +113,17 @@ export async function roomTypeRoutes(app: FastifyInstance) {
     },
   );
 
-  app.delete("/room-type-photos/:id", async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const rows = await withTenant(req.hotelId, (tx) =>
-      tx`delete from room_type_photos where id = ${id} returning id`,
-    );
-    if (rows.length === 0)
-      return reply.code(404).send({ error: "Photo not found" });
-    return reply.code(204).send();
-  });
+  app.delete(
+    "/room-type-photos/:id",
+    { preHandler: canManageRooms },
+    async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const rows = await withTenant(req.hotelId, (tx) =>
+        tx`delete from room_type_photos where id = ${id} returning id`,
+      );
+      if (rows.length === 0)
+        return reply.code(404).send({ error: "Photo not found" });
+      return reply.code(204).send();
+    },
+  );
 }

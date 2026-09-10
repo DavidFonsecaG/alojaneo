@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { withTenant } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const createRoomSchema = z.object({
   roomTypeId: z.string().uuid(),
@@ -21,10 +22,14 @@ const updateRoomSchema = z
     message: "At least one field must be provided",
   });
 
+// Setting up rooms is an admin/manage task. (Housekeeping-status changes are an
+// everyday operations action and live in housekeeping.ts.)
+const canManageRooms = requirePermission("rooms", "manage");
+
 export async function roomRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
 
-  app.post("/rooms", async (req, reply) => {
+  app.post("/rooms", { preHandler: canManageRooms }, async (req, reply) => {
     const body = createRoomSchema.parse(req.body);
 
     const [room] = await withTenant(req.hotelId, (tx) =>
@@ -61,35 +66,43 @@ export async function roomRoutes(app: FastifyInstance) {
     return room;
   });
 
-  app.patch<{ Params: { id: string } }>("/rooms/:id", async (req, reply) => {
-    const body = updateRoomSchema.parse(req.body);
+  app.patch<{ Params: { id: string } }>(
+    "/rooms/:id",
+    { preHandler: canManageRooms },
+    async (req, reply) => {
+      const body = updateRoomSchema.parse(req.body);
 
-    const [updated] = await withTenant(req.hotelId, (tx) =>
-      tx`update rooms set
-        room_number = coalesce(${body.roomNumber ?? null}, room_number),
-        floor = coalesce(${body.floor ?? null}, floor),
-        room_type_id = coalesce(${body.roomTypeId ?? null}, room_type_id),
-        status = coalesce(${body.status ?? null}, status)
-        where id = ${req.params.id}
-        returning *`,
-    );
+      const [updated] = await withTenant(req.hotelId, (tx) =>
+        tx`update rooms set
+          room_number = coalesce(${body.roomNumber ?? null}, room_number),
+          floor = coalesce(${body.floor ?? null}, floor),
+          room_type_id = coalesce(${body.roomTypeId ?? null}, room_type_id),
+          status = coalesce(${body.status ?? null}, status)
+          where id = ${req.params.id}
+          returning *`,
+      );
 
-    if (!updated) {
-      return reply.code(404).send({ error: "Room not found" });
-    }
+      if (!updated) {
+        return reply.code(404).send({ error: "Room not found" });
+      }
 
-    return updated;
-  });
+      return updated;
+    },
+  );
 
-  app.delete<{ Params: { id: string } }>("/rooms/:id", async (req, reply) => {
-    const [deleted] = await withTenant(req.hotelId, (tx) =>
-      tx`delete from rooms where id = ${req.params.id} returning id`,
-    );
+  app.delete<{ Params: { id: string } }>(
+    "/rooms/:id",
+    { preHandler: canManageRooms },
+    async (req, reply) => {
+      const [deleted] = await withTenant(req.hotelId, (tx) =>
+        tx`delete from rooms where id = ${req.params.id} returning id`,
+      );
 
-    if (!deleted) {
-      return reply.code(404).send({ error: "Room not found" });
-    }
+      if (!deleted) {
+        return reply.code(404).send({ error: "Room not found" });
+      }
 
-    return reply.code(204).send();
-  });
+      return reply.code(204).send();
+    },
+  );
 }
