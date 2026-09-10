@@ -134,7 +134,16 @@ export interface RoomType {
   id: string;
   name: string;
   max_occupancy: number;
+  description: string | null;
+  amenities: string[];
   created_at: string;
+}
+
+// A marketing photo for a room type (base64 data URL for the MVP).
+export interface RoomTypePhoto {
+  id: string;
+  data_url: string;
+  sort_order: number;
 }
 
 export interface Room {

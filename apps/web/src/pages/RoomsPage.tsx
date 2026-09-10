@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   Plus,
   Search,
@@ -10,14 +10,17 @@ import {
   Wrench,
   BedDouble,
   Trash2,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
 import { Dialog, ConfirmDialog } from "../components/ui/dialog";
-import { Field } from "../components/ui/field";
+import { Field, Checkbox } from "../components/ui/field";
 import { ErrorBox, EmptyBox } from "../components/States";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
+import { AMENITIES } from "../lib/amenities";
 import {
   useRooms,
   useRoomTypes,
@@ -25,6 +28,10 @@ import {
   useUpdateRoom,
   useDeleteRoom,
   useCreateRoomType,
+  useUpdateRoomType,
+  useRoomTypePhotos,
+  useAddRoomTypePhoto,
+  useDeleteRoomTypePhoto,
 } from "../lib/setup";
 import { useTimeline } from "../lib/reservations";
 import { parseApiDate, toApiDate } from "../lib/format";
@@ -445,88 +452,249 @@ function RoomTypesDialog({
   loading: boolean;
   onClose: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [maxOccupancy, setMaxOccupancy] = useState("2");
+  // Which type is being edited; "new" starts a blank one.
+  const [selected, setSelected] = useState<string>(types[0]?.id ?? "new");
+  const current = types.find((t) => t.id === selected) ?? null;
+
+  return (
+    <Dialog open onClose={onClose} title="Room types" className="max-w-2xl">
+      {loading ? (
+        <Spinner />
+      ) : (
+        <div className="space-y-4">
+          {/* Pick a type to edit, or start a new one */}
+          <div className="flex flex-wrap gap-1.5">
+            {types.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSelected(t.id)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+                  selected === t.id
+                    ? "border-transparent bg-neutral-900 text-white"
+                    : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                {t.name}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSelected("new")}
+              className={cn(
+                "flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+                selected === "new"
+                  ? "border-transparent bg-neutral-900 text-white"
+                  : "border-dashed border-border text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New type
+            </button>
+          </div>
+
+          <RoomTypeEditor
+            key={current?.id ?? "new"}
+            type={current}
+            onCreated={(id) => setSelected(id)}
+          />
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+function RoomTypeEditor({
+  type,
+  onCreated,
+}: {
+  type: RoomType | null;
+  onCreated: (id: string) => void;
+}) {
+  const isEdit = !!type;
+  const [name, setName] = useState(type?.name ?? "");
+  const [maxOccupancy, setMaxOccupancy] = useState(
+    String(type?.max_occupancy ?? 2),
+  );
+  const [description, setDescription] = useState(type?.description ?? "");
+  const [amenities, setAmenities] = useState<Set<string>>(
+    () => new Set(type?.amenities ?? []),
+  );
+  const [error, setError] = useState<string | null>(null);
+
   const create = useCreateRoomType();
+  const update = useUpdateRoomType();
+  const pending = create.isPending || update.isPending;
+
+  const toggle = (key: string) =>
+    setAmenities((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    create.mutate(
-      { name: name.trim(), maxOccupancy: Number(maxOccupancy) || 1 },
-      {
-        onSuccess: () => {
-          setName("");
-          setMaxOccupancy("2");
-        },
-      },
-    );
+    setError(null);
+    if (!name.trim()) return setError("Name is required.");
+    const input = {
+      name: name.trim(),
+      maxOccupancy: Number(maxOccupancy) || 1,
+      description: description.trim() || undefined,
+      amenities: [...amenities],
+    };
+    const onError = () => setError("Couldn't save the room type.");
+    if (isEdit && type) {
+      update.mutate({ id: type.id, ...input }, { onError });
+    } else {
+      create.mutate(input, { onSuccess: (rt) => onCreated(rt.id), onError });
+    }
   }
 
   return (
-    <Dialog open onClose={onClose} title="Room types">
-      <div className="space-y-4">
-        {loading ? (
-          <Spinner />
-        ) : types.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No room types yet.</p>
-        ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border">
-            {types.map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center justify-between px-3 py-2 text-sm"
-              >
-                <span className="font-medium">{t.name}</span>
-                <span className="text-muted-foreground">
-                  max {t.max_occupancy}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <form
-          onSubmit={onSubmit}
-          className="space-y-2 border-t border-border pt-4"
-        >
-          <Field label="New room type" htmlFor="rt-name">
-            <Input
-              id="rt-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Double, Suite…"
-            />
-          </Field>
-          <div className="flex items-end gap-2">
-            <div className="w-24">
-              <Field label="Max occ." htmlFor="rt-occ">
-                <Input
-                  id="rt-occ"
-                  type="number"
-                  min={1}
-                  value={maxOccupancy}
-                  onChange={(e) => setMaxOccupancy(e.target.value)}
-                />
-              </Field>
-            </div>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={create.isPending || !name.trim()}
-            >
-              {create.isPending && <Spinner />}
-              Add
-            </Button>
-          </div>
-          {create.isError && (
-            <p className="text-xs text-destructive">
-              {(create.error as Error).message}
-            </p>
-          )}
-        </form>
+    <form
+      onSubmit={onSubmit}
+      className="space-y-4 rounded-lg border border-border p-4"
+    >
+      <div className="grid grid-cols-[1fr_6rem] gap-3">
+        <Field label="Name" htmlFor="rt-name">
+          <Input
+            id="rt-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Double, Suite…"
+          />
+        </Field>
+        <Field label="Max occ." htmlFor="rt-occ">
+          <Input
+            id="rt-occ"
+            type="number"
+            min={1}
+            value={maxOccupancy}
+            onChange={(e) => setMaxOccupancy(e.target.value)}
+          />
+        </Field>
       </div>
-    </Dialog>
+
+      <Field label="Description" htmlFor="rt-desc">
+        <textarea
+          id="rt-desc"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          placeholder="Shown to guests on the booking engine…"
+          className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </Field>
+
+      <div className="space-y-2">
+        <div className="text-sm font-medium">Amenities</div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+          {AMENITIES.map((a) => (
+            <Checkbox
+              key={a.key}
+              id={`am-${a.key}`}
+              checked={amenities.has(a.key)}
+              onChange={() => toggle(a.key)}
+              label={a.label}
+            />
+          ))}
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <div className="flex justify-end">
+        <Button type="submit" size="sm" disabled={pending || !name.trim()}>
+          {pending && <Spinner />}
+          {isEdit ? "Save changes" : "Create room type"}
+        </Button>
+      </div>
+
+      {isEdit && type ? (
+        <PhotosSection typeId={type.id} />
+      ) : (
+        <p className="border-t border-border pt-4 text-xs text-muted-foreground">
+          Save the room type to add photos.
+        </p>
+      )}
+    </form>
+  );
+}
+
+function PhotosSection({ typeId }: { typeId: string }) {
+  const photos = useRoomTypePhotos(typeId);
+  const add = useAddRoomTypePhoto(typeId);
+  const remove = useDeleteRoomTypePhoto(typeId);
+  const [error, setError] = useState<string | null>(null);
+
+  function onPick(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image too large (max 5MB).");
+      return;
+    }
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = () =>
+      add.mutate(reader.result as string, {
+        onError: () => setError("Upload failed."),
+      });
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div className="space-y-2 border-t border-border pt-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-medium">Photos</div>
+        <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+          {add.isPending ? <Spinner /> : <ImagePlus className="h-3.5 w-3.5" />}
+          Add photo
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={onPick}
+            disabled={add.isPending}
+          />
+        </label>
+      </div>
+
+      {error && <p className="text-xs text-destructive">{error}</p>}
+
+      {photos.isLoading ? (
+        <Spinner />
+      ) : (photos.data ?? []).length === 0 ? (
+        <p className="text-xs text-muted-foreground">No photos yet.</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {(photos.data ?? []).map((p) => (
+            <div
+              key={p.id}
+              className="group relative aspect-square overflow-hidden rounded-lg border border-border"
+            >
+              <img
+                src={p.data_url}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => remove.mutate(p.id)}
+                aria-label="Remove photo"
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900/70 text-white opacity-0 transition-opacity hover:bg-neutral-900 group-hover:opacity-100"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

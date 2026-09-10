@@ -5,7 +5,7 @@ import {
   type QueryKey,
 } from "@tanstack/react-query";
 import { api } from "./api";
-import type { Guest, RatePlan, Room, RoomType } from "../types";
+import type { Guest, RatePlan, Room, RoomType, RoomTypePhoto } from "../types";
 
 // Small helper: a mutation that invalidates one or more query keys on success.
 function useInvalidatingMutation<TArgs, TResult>(
@@ -32,12 +32,47 @@ export function useRoomTypes() {
 export interface RoomTypeInput {
   name: string;
   maxOccupancy: number;
+  description?: string;
+  amenities?: string[];
 }
 
 export function useCreateRoomType() {
   return useInvalidatingMutation(
     (input: RoomTypeInput) => api.post<RoomType>("/room-types", input),
     [["room-types"]],
+  );
+}
+
+export function useUpdateRoomType() {
+  return useInvalidatingMutation(
+    ({ id, ...input }: RoomTypeInput & { id: string }) =>
+      api.put<RoomType>(`/room-types/${id}`, input),
+    [["room-types"]],
+  );
+}
+
+// ── Room-type photos ────────────────────────────────────────────────
+export function useRoomTypePhotos(typeId: string | undefined) {
+  return useQuery({
+    queryKey: ["room-type-photos", typeId],
+    queryFn: () =>
+      api.get<RoomTypePhoto[]>(`/room-types/${typeId}/photos`),
+    enabled: !!typeId,
+  });
+}
+
+export function useAddRoomTypePhoto(typeId: string) {
+  return useInvalidatingMutation(
+    (dataUrl: string) =>
+      api.post<RoomTypePhoto>(`/room-types/${typeId}/photos`, { dataUrl }),
+    [["room-type-photos", typeId]],
+  );
+}
+
+export function useDeleteRoomTypePhoto(typeId: string) {
+  return useInvalidatingMutation(
+    (photoId: string) => api.del<void>(`/room-type-photos/${photoId}`),
+    [["room-type-photos", typeId]],
   );
 }
 
