@@ -1,6 +1,8 @@
 import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import {
   Plus,
+  Pencil,
   Search,
   MoreHorizontal,
   Building2,
@@ -20,6 +22,14 @@ import { Dialog, ConfirmDialog } from "../components/ui/dialog";
 import { Field, Checkbox } from "../components/ui/field";
 import { ErrorBox, EmptyBox } from "../components/States";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 import { AMENITIES } from "../lib/amenities";
 import {
   useRooms,
@@ -32,8 +42,10 @@ import {
   useRoomTypePhotos,
   useAddRoomTypePhoto,
   useDeleteRoomTypePhoto,
+  useUpdateHousekeeping,
+  type HousekeepingStatus,
 } from "../lib/setup";
-import { useTimeline } from "../lib/reservations";
+import { useTimeline, useUpdateRoomStatus } from "../lib/reservations";
 import { parseApiDate, toApiDate } from "../lib/format";
 import { cn } from "../lib/utils";
 import { ApiError } from "../lib/api";
@@ -51,7 +63,7 @@ const STATE_META: Record<
   TileState,
   { label: string; dot: string; tile: string }
 > = {
-  occupied: { label: "Occupied", dot: "bg-violet-500", tile: "bg-violet-50" },
+  occupied: { label: "Occupied", dot: "bg-sky-500", tile: "bg-sky-50" },
   ready: { label: "Ready", dot: "bg-emerald-500", tile: "bg-card" },
   dirty: { label: "Dirty", dot: "bg-amber-500", tile: "bg-card" },
   maintenance: { label: "Maintenance", dot: "bg-slate-400", tile: "bg-card" },
@@ -83,7 +95,7 @@ const shortDate = (iso: string) =>
 const FILTERS: { key: TileState | "all"; label: string; dot?: string }[] = [
   { key: "all", label: "All rooms" },
   { key: "ready", label: "Ready", dot: "bg-emerald-500" },
-  { key: "occupied", label: "Occupied", dot: "bg-violet-500" },
+  { key: "occupied", label: "Occupied", dot: "bg-sky-500" },
   { key: "dirty", label: "Dirty", dot: "bg-amber-500" },
   { key: "maintenance", label: "Maintenance", dot: "bg-slate-400" },
 ];
@@ -107,11 +119,12 @@ export function RoomsPage() {
     return m;
   }, [timeline.data]);
 
-  const [formOpen, setFormOpen] = useState(false);
-  const [typesOpen, setTypesOpen] = useState(false);
-  const [editing, setEditing] = useState<Room | null>(null);
-  const [deleting, setDeleting] = useState<Room | null>(null);
-  const deleteRoom = useDeleteRoom();
+  // The room whose operations panel is open.
+  const [acting, setActing] = useState<{
+    room: Room;
+    stay: TimelineStay | undefined;
+    state: TileState;
+  } | null>(null);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TileState | "all">("all");
@@ -153,24 +166,7 @@ export function RoomsPage() {
     <div className="flex h-full flex-col gap-3">
       <PageHeader
         title="Rooms"
-        description="Manage status, occupancy, and guests at a glance."
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setTypesOpen(true)}>
-              Room types
-            </Button>
-            <Button
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-              disabled={!hasTypes}
-            >
-              <Plus className="h-4 w-4" />
-              Add room
-            </Button>
-          </div>
-        }
+        description="Live status, occupancy, and housekeeping at a glance."
       />
 
       {/* Stat cards */}
@@ -185,8 +181,8 @@ export function RoomsPage() {
           label="Occupied"
           value={counts.occupied}
           icon={<Users className="h-5 w-5" />}
-          tint="bg-violet-100 text-violet-600"
-          valueClass="text-violet-600"
+          tint="bg-sky-100 text-sky-600"
+          valueClass="text-sky-600"
         />
         <StatCard
           label="Ready"
@@ -251,13 +247,13 @@ export function RoomsPage() {
         <EmptyBox
           icon={<BedDouble className="h-8 w-8 text-muted-foreground" />}
           title="Create a room type first"
-          body="Rooms belong to a room type. Open “Room types” above to add one."
+          body="Room setup lives in Settings → Rooms & room types."
         />
       ) : !rooms.data || rooms.data.length === 0 ? (
         <EmptyBox
           icon={<BedDouble className="h-8 w-8 text-muted-foreground" />}
           title="No rooms yet"
-          body="Add your first room with the button above."
+          body="Add rooms in Settings → Rooms & room types."
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
@@ -273,14 +269,253 @@ export function RoomsPage() {
                   room={room}
                   stay={stay}
                   state={state}
-                  onOpen={() => {
-                    setEditing(room);
-                    setFormOpen(true);
-                  }}
+                  onOpen={() => setActing({ room, stay, state })}
                 />
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {acting && (
+        <RoomActionsDialog
+          room={acting.room}
+          stay={acting.stay}
+          onClose={() => setActing(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Operations panel for a room: current stay (with check-in/out + a link to the
+// reservation) and a housekeeping-status toggle. Configuration lives in
+// Settings, so there's no room editing here.
+const HK_STATUSES: HousekeepingStatus[] = [
+  "clean",
+  "dirty",
+  "in_progress",
+  "inspected",
+];
+
+function RoomActionsDialog({
+  room,
+  stay,
+  onClose,
+}: {
+  room: Room;
+  stay: TimelineStay | undefined;
+  onClose: () => void;
+}) {
+  const hk = useUpdateHousekeeping();
+  const status = useUpdateRoomStatus(stay?.reservation_id ?? "");
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Room ${room.room_number}`}
+      description={room.room_type_name}
+    >
+      <div className="space-y-5">
+        <section className="space-y-2">
+          <div className="text-sm font-medium">Today</div>
+          {stay ? (
+            <div className="rounded-lg border border-border p-3">
+              <div className="text-sm font-medium">
+                {stay.guest_first_name} {stay.guest_last_name}
+              </div>
+              <div className="mt-0.5 text-xs capitalize text-muted-foreground">
+                {shortDate(stay.check_in)} – {shortDate(stay.check_out)} ·{" "}
+                {stay.status.replace(/_/g, " ")}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Link
+                  to={`/reservations/${stay.reservation_id}`}
+                  onClick={onClose}
+                  className="text-sm font-medium text-blue-500 hover:underline"
+                >
+                  View reservation →
+                </Link>
+                {stay.status === "confirmed" && (
+                  <Button
+                    size="sm"
+                    disabled={status.isPending}
+                    onClick={() =>
+                      status.mutate(
+                        { roomId: stay.id, status: "checked_in" },
+                        { onSuccess: onClose },
+                      )
+                    }
+                  >
+                    {status.isPending && <Spinner />}
+                    Check in
+                  </Button>
+                )}
+                {stay.status === "checked_in" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={status.isPending}
+                    onClick={() =>
+                      status.mutate(
+                        { roomId: stay.id, status: "checked_out" },
+                        { onSuccess: onClose },
+                      )
+                    }
+                  >
+                    {status.isPending && <Spinner />}
+                    Check out
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No guest in this room today.
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-2">
+          <div className="text-sm font-medium">Housekeeping</div>
+          <div className="flex flex-wrap gap-1.5">
+            {HK_STATUSES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                disabled={hk.isPending}
+                onClick={() => hk.mutate({ id: room.id, status: s })}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-sm capitalize transition-colors",
+                  room.housekeeping_status === s
+                    ? "border-transparent bg-neutral-900 text-white"
+                    : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                {s.replace(/_/g, " ")}
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+    </Dialog>
+  );
+}
+
+// Admin room setup — rendered on the Settings page. Rooms table (add / edit /
+// delete) plus the room-types editor. The mutating endpoints behind these are
+// gated to "rooms:manage" server-side.
+export function RoomsSetup() {
+  const rooms = useRooms();
+  const roomTypes = useRoomTypes();
+  const deleteRoom = useDeleteRoom();
+  const [formOpen, setFormOpen] = useState(false);
+  const [typesOpen, setTypesOpen] = useState(false);
+  const [editing, setEditing] = useState<Room | null>(null);
+  const [deleting, setDeleting] = useState<Room | null>(null);
+
+  const types = roomTypes.data ?? [];
+  const hasTypes = types.length > 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Rooms &amp; room types
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Add rooms, set floors and types, and manage room-type details.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setTypesOpen(true)}>
+            Room types
+          </Button>
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            disabled={!hasTypes}
+          >
+            <Plus className="h-4 w-4" />
+            Add room
+          </Button>
+        </div>
+      </div>
+
+      {rooms.isLoading ? (
+        <CenteredSpinner label="Loading rooms…" />
+      ) : rooms.isError ? (
+        <ErrorBox message={(rooms.error as Error).message} />
+      ) : !hasTypes ? (
+        <EmptyBox
+          icon={<BedDouble className="h-8 w-8 text-muted-foreground" />}
+          title="Create a room type first"
+          body="Open “Room types” above to add one, then add rooms."
+        />
+      ) : (rooms.data ?? []).length === 0 ? (
+        <EmptyBox
+          icon={<BedDouble className="h-8 w-8 text-muted-foreground" />}
+          title="No rooms yet"
+          body="Add your first room with the button above."
+        />
+      ) : (
+        <div className="overflow-hidden rounded-3xl bg-card shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Room</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Floor</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Housekeeping</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(rooms.data ?? []).map((room) => (
+                <TableRow key={room.id}>
+                  <TableCell className="font-medium">
+                    {room.room_number}
+                  </TableCell>
+                  <TableCell>{room.room_type_name}</TableCell>
+                  <TableCell>{room.floor ?? "—"}</TableCell>
+                  <TableCell className="capitalize">
+                    {room.status.replace(/_/g, " ")}
+                  </TableCell>
+                  <TableCell className="capitalize text-muted-foreground">
+                    {room.housekeeping_status.replace(/_/g, " ")}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Edit room"
+                        onClick={() => {
+                          setEditing(room);
+                          setFormOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Delete room"
+                        onClick={() => setDeleting(room)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -300,7 +535,6 @@ export function RoomsPage() {
           }
         />
       )}
-
       {typesOpen && (
         <RoomTypesDialog
           types={types}
@@ -308,7 +542,6 @@ export function RoomsPage() {
           onClose={() => setTypesOpen(false)}
         />
       )}
-
       <ConfirmDialog
         open={!!deleting}
         onClose={() => setDeleting(null)}
@@ -317,9 +550,7 @@ export function RoomsPage() {
         loading={deleteRoom.isPending}
         onConfirm={() =>
           deleting &&
-          deleteRoom.mutate(deleting.id, {
-            onSuccess: () => setDeleting(null),
-          })
+          deleteRoom.mutate(deleting.id, { onSuccess: () => setDeleting(null) })
         }
       />
     </div>
@@ -410,7 +641,7 @@ function RoomTile({
       <div className="mt-4">
         {state === "occupied" && stay ? (
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700">
               {(stay.guest_first_name[0] ?? "") + (stay.guest_last_name[0] ?? "")}
             </span>
             <div className="min-w-0">

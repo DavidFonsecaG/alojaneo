@@ -113,6 +113,16 @@ export function useDeleteRoom() {
   );
 }
 
+export type HousekeepingStatus = "clean" | "dirty" | "in_progress" | "inspected";
+
+export function useUpdateHousekeeping() {
+  return useInvalidatingMutation(
+    ({ id, status }: { id: string; status: HousekeepingStatus }) =>
+      api.patch<Room>(`/rooms/${id}/housekeeping`, { status }),
+    [["rooms"], ["dashboard"]],
+  );
+}
+
 // ── Rate plans ──────────────────────────────────────────────────────
 export function useRatePlans() {
   return useQuery({

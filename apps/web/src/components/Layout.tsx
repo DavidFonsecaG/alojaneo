@@ -21,6 +21,7 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   enabled: boolean;
+  adminOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
@@ -31,7 +32,7 @@ const NAV: NavItem[] = [
   { to: "/rate-plans", label: "Rate plans", icon: Tags, enabled: true },
   { to: "/guests", label: "Guests", icon: Users, enabled: true },
   { to: "/housekeeping", label: "Housekeeping", icon: Sparkles, enabled: false },
-  { to: "/settings", label: "Settings", icon: Settings, enabled: false },
+  { to: "/settings", label: "Settings", icon: Settings, enabled: true, adminOnly: true },
 ];
 
 export function Layout() {
@@ -99,7 +100,9 @@ export function Layout() {
         </div>
 
         <nav className="flex-1 space-y-1.5 overflow-y-auto p-3 pt-5">
-          {NAV.map((item) => {
+          {NAV.filter(
+            (item) => !item.adminOnly || user?.role === "admin",
+          ).map((item) => {
             const Icon = item.icon;
             // Same height in both states; when collapsed each item is a
             // square that shows only its icon.
