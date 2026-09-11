@@ -154,6 +154,16 @@ export async function publicBookingRoutes(app: FastifyInstance) {
     const hotelId = hotel.id;
     const { checkIn, checkOut } = body;
 
+    // reservation_rooms.rate_cents holds the amount for the whole stay (this is
+    // how the staff app stores it too), so multiply the plan's nightly base
+    // rate by the number of nights.
+    const stayNights = Math.max(
+      1,
+      Math.round(
+        (Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000,
+      ),
+    );
+
     let result;
     try {
       // The hotel was resolved from the slug (hotels has no RLS); everything
@@ -210,7 +220,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
         assignedRooms.push({
           roomId: availableRoom.id,
           ratePlanId: requested.ratePlanId,
-          rateCents: ratePlan.base_rate_cents,
+          rateCents: ratePlan.base_rate_cents * stayNights,
         });
       }
 
