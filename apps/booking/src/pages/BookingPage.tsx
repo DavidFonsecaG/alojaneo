@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   BedDouble,
@@ -39,13 +39,55 @@ const tomorrow = new Date(today.getTime() + 86_400_000);
 
 export function BookingPage() {
   const { hotelSlug } = useParams<{ hotelSlug: string }>();
+  const [searchParams] = useSearchParams();
+
+  // Deep-link support: a hotel (or the embed loader) can prefill and auto-run a
+  // search via ?checkin=&checkout=&guests=. ?embed=1 drops the page chrome so
+  // the engine sits cleanly inside an iframe on the hotel's own site.
+  const embed = searchParams.get("embed") === "1";
+  const qpCheckIn = searchParams.get("checkin") ?? "";
+  const qpCheckOut = searchParams.get("checkout") ?? "";
+  const qpGuests = Number(searchParams.get("guests")) || 0;
 
   // Search form (draft) vs. the submitted params that actually drive the query.
-  const [checkIn, setCheckIn] = useState(toApiDate(today));
-  const [checkOut, setCheckOut] = useState(toApiDate(tomorrow));
-  const [guests, setGuests] = useState(2);
+  const [checkIn, setCheckIn] = useState(qpCheckIn || toApiDate(today));
+  const [checkOut, setCheckOut] = useState(qpCheckOut || toApiDate(tomorrow));
+  const [guests, setGuests] = useState(qpGuests || 2);
   const [submitted, setSubmitted] = useState<SearchParams | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Run the deep-linked search once on mount when valid dates were supplied.
+  const didInit = useRef(false);
+  useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
+    if (qpCheckIn && qpCheckOut && qpCheckOut > qpCheckIn) {
+      setSubmitted({
+        checkIn: qpCheckIn,
+        checkOut: qpCheckOut,
+        guests: qpGuests || 2,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When embedded in an iframe, report our content height to the parent so the
+  // embed loader can size the frame (no inner scrollbar). Fires on every layout
+  // change — results loading, step changes, confirmation.
+  useEffect(() => {
+    if (!embed || typeof window === "undefined" || window.parent === window) {
+      return;
+    }
+    const post = () =>
+      window.parent.postMessage(
+        { type: "alojaneo:resize", height: document.documentElement.scrollHeight },
+        "*",
+      );
+    post();
+    const ro = new ResizeObserver(post);
+    ro.observe(document.body);
+    return () => ro.disconnect();
+  }, [embed]);
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [step, setStep] = useState<"browse" | "checkout">("browse");
@@ -87,7 +129,7 @@ export function BookingPage() {
 
   if (confirmation) {
     return (
-      <Shell hotelSlug={hotelSlug}>
+      <Shell hotelSlug={hotelSlug} embed={embed}>
         <ConfirmationView
           confirmation={confirmation}
           onReset={() => {
@@ -102,7 +144,7 @@ export function BookingPage() {
   }
 
   return (
-    <Shell hotelSlug={hotelSlug}>
+    <Shell hotelSlug={hotelSlug} embed={embed}>
       <SearchBar
         checkIn={checkIn}
         checkOut={checkOut}
@@ -182,33 +224,42 @@ export function BookingPage() {
 
 function Shell({
   hotelSlug,
+  embed,
   children,
 }: {
   hotelSlug: string | undefined;
+  embed?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <BedDouble className="h-5 w-5" />
-            </span>
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">Book your stay</div>
-              <div className="text-xs text-muted-foreground">{hotelSlug}</div>
+    <div className={embed ? "" : "min-h-screen"}>
+      {/* The branded header is the standalone-page chrome. When embedded on a
+          hotel's own site, their page already provides the header, so we drop
+          ours and let the engine fill the iframe. */}
+      {!embed && (
+        <header className="border-b border-border bg-card">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+            <div className="flex items-center gap-2">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <BedDouble className="h-5 w-5" />
+              </span>
+              <div className="leading-tight">
+                <div className="text-sm font-semibold">Book your stay</div>
+                <div className="text-xs text-muted-foreground">{hotelSlug}</div>
+              </div>
             </div>
+            <Link
+              to="/"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Change hotel
+            </Link>
           </div>
-          <Link
-            to="/"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            Change hotel
-          </Link>
-        </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+        </header>
+      )}
+      <main className={embed ? "mx-auto max-w-5xl px-4 py-4" : "mx-auto max-w-5xl px-4 py-6"}>
+        {children}
+      </main>
     </div>
   );
 }
