@@ -78,6 +78,9 @@ function OccupancyCard() {
   const total = occ.data?.total ?? 0;
   const series = occ.data?.series ?? [];
   const isMonth = span === "month";
+  // Only the single-bar "day" view needs a width cap; week/month bars fill
+  // their columns so they read as a proper chart rather than thin slivers.
+  const singleBar = series.length <= 1;
 
   return (
     <Panel className="lg:col-span-2">
@@ -111,7 +114,7 @@ function OccupancyCard() {
           <CenteredSpinner />
         </div>
       ) : (
-        <div className="mt-6 flex h-56 items-stretch gap-2">
+        <div className="mt-6 flex h-56 items-stretch gap-1.5">
           {series.map((p) => {
             const pct = total
               ? Math.min(100, Math.round((100 * p.occupied) / total))
@@ -126,7 +129,7 @@ function OccupancyCard() {
                 <div
                   className={cn(
                     "relative flex w-full flex-1 items-end overflow-hidden rounded-lg bg-primary/10",
-                    !isMonth && "max-w-[52px]",
+                    singleBar && "max-w-[140px]",
                   )}
                   title={`${p.occupied}/${total} rooms · ${pct}%`}
                 >
@@ -161,7 +164,7 @@ function RoomStatusCard({
   const available = rs?.available ?? 0;
   const pct = total ? Math.round((100 * occupied) / total) : 0;
 
-  const R = 52;
+  const R = 50;
   const C = 2 * Math.PI * R;
   const occLen = (pct / 100) * C;
 
@@ -174,28 +177,35 @@ function RoomStatusCard({
         </div>
       ) : (
         <>
-          <div className="relative mx-auto mt-4 flex h-44 w-44 items-center justify-center">
+          <div className="relative mx-auto mt-4 flex h-52 w-52 items-center justify-center">
             <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-              <circle
-                cx="60"
-                cy="60"
-                r={R}
-                fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth="14"
-                strokeDasharray={`${occLen} ${C}`}
-              />
-              <circle
-                cx="60"
-                cy="60"
-                r={R}
-                fill="none"
-                className="text-emerald-400"
-                stroke="currentColor"
-                strokeWidth="14"
-                strokeDasharray={`${C - occLen} ${C}`}
-                strokeDashoffset={-occLen}
-              />
+              {/* Available track first (flat ends); the occupied arc is drawn
+                  on top with rounded caps so its ends sit over the seam. */}
+              {available > 0 && (
+                <circle
+                  cx="60"
+                  cy="60"
+                  r={R}
+                  fill="none"
+                  className="text-emerald-400"
+                  stroke="currentColor"
+                  strokeWidth="18"
+                  strokeDasharray={`${C - occLen} ${C}`}
+                  strokeDashoffset={-occLen}
+                />
+              )}
+              {occupied > 0 && (
+                <circle
+                  cx="60"
+                  cy="60"
+                  r={R}
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="18"
+                  strokeLinecap="round"
+                  strokeDasharray={`${occLen} ${C}`}
+                />
+              )}
             </svg>
             <div className="absolute flex flex-col items-center">
               <span className="text-3xl font-bold">{pct}%</span>
