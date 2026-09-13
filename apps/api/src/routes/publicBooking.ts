@@ -30,6 +30,31 @@ const bookingBodySchema = z.object({
 export async function publicBookingRoutes(app: FastifyInstance) {
   // NO requireAuth here — these are public endpoints
 
+  // GET /public/:hotelSlug — public hotel info + branding for the booking
+  // engine (name, currency, banner, accent). Kept separate from availability so
+  // the (potentially large) banner isn't refetched on every date change.
+  app.get("/public/:hotelSlug", async (req, reply) => {
+    const { hotelSlug } = req.params as { hotelSlug: string };
+
+    const [hotel] = await sqlUnscoped`
+      select name, slug, currency, banner_url, accent_color
+      from hotels
+      where slug = ${hotelSlug}
+    `;
+
+    if (!hotel) {
+      return reply.code(404).send({ error: "Hotel not found" });
+    }
+
+    return {
+      name: hotel.name,
+      slug: hotel.slug,
+      currency: hotel.currency,
+      bannerUrl: hotel.banner_url,
+      accentColor: hotel.accent_color,
+    };
+  });
+
   // GET /public/:hotelSlug/availability
   app.get("/public/:hotelSlug/availability", async (req, reply) => {
     const { hotelSlug } = req.params as { hotelSlug: string };

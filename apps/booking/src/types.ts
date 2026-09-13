@@ -2,6 +2,15 @@
 // (apps/api/src/routes/publicBooking.ts). Hand-written to keep this app
 // decoupled from the server.
 
+// GET /public/:hotelSlug — hotel info + branding for the engine.
+export interface HotelInfo {
+  name: string;
+  slug: string;
+  currency: string;
+  bannerUrl: string | null;
+  accentColor: string | null;
+}
+
 // One entry of GET /public/:hotelSlug/availability
 export interface AvailabilityRatePlan {
   id: string;

@@ -25,10 +25,22 @@ const updateProfileSchema = z
   .object({
     name: z.string().min(1).optional(),
     slug: z.string().min(1).optional(),
+    // Branding for the public booking engine. An empty string clears the value
+    // (removes the banner / resets to the default accent).
+    bannerUrl: z.string().max(8_000_000).optional(),
+    accentColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, "accentColor must be a hex like #0c4a6e")
+      .or(z.literal(""))
+      .optional(),
   })
   .refine((b) => Object.values(b).some((v) => v !== undefined), {
     message: "At least one field must be provided",
   });
+
+// A banner can be a few MB as a base64 data URL, so lift the body limit on the
+// profile PATCH (default is 1 MB).
+const PROFILE_BODY_LIMIT = 8 * 1024 * 1024;
 
 export async function hotelSettingsRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
@@ -70,7 +82,7 @@ export async function hotelSettingsRoutes(app: FastifyInstance) {
 
   app.get("/hotel/profile", async (req, reply) => {
     const [profile] = await sqlUnscoped`
-      select id, name, slug, created_at
+      select id, name, slug, banner_url, accent_color, created_at
       from hotels
       where id = ${req.hotelId}
     `;
@@ -82,21 +94,38 @@ export async function hotelSettingsRoutes(app: FastifyInstance) {
     return profile;
   });
 
-  app.patch("/hotel/profile", async (req, reply) => {
-    const body = updateProfileSchema.parse(req.body);
+  app.patch(
+    "/hotel/profile",
+    { bodyLimit: PROFILE_BODY_LIMIT },
+    async (req, reply) => {
+      const body = updateProfileSchema.parse(req.body);
 
-    const [updated] = await sqlUnscoped`
-      update hotels set
-        name = coalesce(${body.name ?? null}, name),
-        slug = coalesce(${body.slug ?? null}, slug)
-      where id = ${req.hotelId}
-      returning id, name, slug, created_at
-    `;
+      // name/slug use coalesce (only overwrite when provided). banner_url and
+      // accent_color must also support *clearing*, so an empty string maps to
+      // NULL while `undefined` (field omitted) keeps the current value.
+      const [updated] = await sqlUnscoped`
+        update hotels set
+          name = coalesce(${body.name ?? null}, name),
+          slug = coalesce(${body.slug ?? null}, slug),
+          banner_url = ${
+            body.bannerUrl === undefined
+              ? sqlUnscoped`banner_url`
+              : body.bannerUrl || null
+          },
+          accent_color = ${
+            body.accentColor === undefined
+              ? sqlUnscoped`accent_color`
+              : body.accentColor || null
+          }
+        where id = ${req.hotelId}
+        returning id, name, slug, banner_url, accent_color, created_at
+      `;
 
-    if (!updated) {
-      return reply.code(404).send({ error: "Hotel not found" });
-    }
+      if (!updated) {
+        return reply.code(404).send({ error: "Hotel not found" });
+      }
 
-    return updated;
-  });
+      return updated;
+    },
+  );
 }

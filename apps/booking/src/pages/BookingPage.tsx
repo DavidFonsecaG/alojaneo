@@ -12,8 +12,10 @@ import {
 import { Button, Card, Field, Input, Select, Spinner } from "../components/ui";
 import { amenityLabel } from "../lib/amenities";
 import { ApiError } from "../lib/api";
-import { useAvailability, useCreateBooking } from "../lib/booking";
+import { useAvailability, useCreateBooking, useHotel } from "../lib/booking";
+import { hexToHslTriplet, readableForegroundTriplet } from "../lib/color";
 import { formatDate, formatMoney, nights, toApiDate } from "../lib/format";
+import { cn } from "../lib/utils";
 import type {
   AvailabilityItem,
   AvailabilityRatePlan,
@@ -56,17 +58,15 @@ export function BookingPage() {
   const [submitted, setSubmitted] = useState<SearchParams | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Run the deep-linked search once on mount when valid dates were supplied.
+  // Show rooms immediately: run a search on mount using whatever is in the date
+  // boxes (deep-linked values, or today→tomorrow / 2 guests by default) so the
+  // guest lands on availability instead of an empty list.
   const didInit = useRef(false);
   useEffect(() => {
     if (didInit.current) return;
     didInit.current = true;
-    if (qpCheckIn && qpCheckOut && qpCheckOut > qpCheckIn) {
-      setSubmitted({
-        checkIn: qpCheckIn,
-        checkOut: qpCheckOut,
-        guests: qpGuests || 2,
-      });
+    if (checkIn && checkOut && checkOut > checkIn) {
+      setSubmitted({ checkIn, checkOut, guests });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -96,6 +96,24 @@ export function BookingPage() {
   );
 
   const availability = useAvailability(hotelSlug, submitted);
+  const hotel = useHotel(hotelSlug);
+
+  // Apply the hotel's accent color onto the theme tokens the buttons/links use.
+  const accent = hotel.data?.accentColor ?? null;
+  useEffect(() => {
+    if (!accent) return;
+    const triplet = hexToHslTriplet(accent);
+    if (!triplet) return;
+    const root = document.documentElement;
+    root.style.setProperty("--primary", triplet);
+    root.style.setProperty("--primary-foreground", readableForegroundTriplet(accent));
+    root.style.setProperty("--ring", triplet);
+    return () => {
+      root.style.removeProperty("--primary");
+      root.style.removeProperty("--primary-foreground");
+      root.style.removeProperty("--ring");
+    };
+  }, [accent]);
 
   const stayNights =
     submitted && submitted.checkOut > submitted.checkIn
@@ -127,9 +145,27 @@ export function BookingPage() {
   );
   const currency = cart[0]?.ratePlan.currency ?? "USD";
 
+  if (hotel.isError) {
+    return (
+      <Shell hotelName={undefined} bannerUrl={null} embed={embed}>
+        <Card className="p-8 text-center">
+          <p className="font-medium">Hotel not found</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            We couldn't find a hotel at "{hotelSlug}". Check the link and try
+            again.
+          </p>
+        </Card>
+      </Shell>
+    );
+  }
+
   if (confirmation) {
     return (
-      <Shell hotelSlug={hotelSlug} embed={embed}>
+      <Shell
+        hotelName={hotel.data?.name}
+        bannerUrl={hotel.data?.bannerUrl ?? null}
+        embed={embed}
+      >
         <ConfirmationView
           confirmation={confirmation}
           onReset={() => {
@@ -144,7 +180,11 @@ export function BookingPage() {
   }
 
   return (
-    <Shell hotelSlug={hotelSlug} embed={embed}>
+    <Shell
+      hotelName={hotel.data?.name}
+      bannerUrl={hotel.data?.bannerUrl ?? null}
+      embed={embed}
+    >
       <SearchBar
         checkIn={checkIn}
         checkOut={checkOut}
@@ -223,19 +263,23 @@ export function BookingPage() {
 }
 
 function Shell({
-  hotelSlug,
+  hotelName,
+  bannerUrl,
   embed,
   children,
 }: {
-  hotelSlug: string | undefined;
+  hotelName: string | undefined;
+  bannerUrl: string | null;
   embed?: boolean;
   children: React.ReactNode;
 }) {
+  const title = hotelName || "Book your stay";
+  const showBanner = !embed && !!bannerUrl;
   return (
     <div className={embed ? "" : "min-h-screen"}>
-      {/* The branded header is the standalone-page chrome. When embedded on a
-          hotel's own site, their page already provides the header, so we drop
-          ours and let the engine fill the iframe. */}
+      {/* The branded header + banner are the standalone-page chrome. When
+          embedded on a hotel's own site, their page already provides those, so
+          we drop them and let the engine fill the iframe. */}
       {!embed && (
         <header className="border-b border-border bg-card">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
@@ -244,8 +288,10 @@ function Shell({
                 <BedDouble className="h-5 w-5" />
               </span>
               <div className="leading-tight">
-                <div className="text-sm font-semibold">Book your stay</div>
-                <div className="text-xs text-muted-foreground">{hotelSlug}</div>
+                <div className="text-sm font-semibold">{title}</div>
+                <div className="text-xs text-muted-foreground">
+                  Direct booking
+                </div>
               </div>
             </div>
             <Link
@@ -257,7 +303,26 @@ function Shell({
           </div>
         </header>
       )}
-      <main className={embed ? "mx-auto max-w-5xl px-4 py-4" : "mx-auto max-w-5xl px-4 py-6"}>
+
+      {showBanner && (
+        <div className="w-full bg-muted">
+          <img
+            src={bannerUrl!}
+            alt={title}
+            className="h-52 w-full object-cover sm:h-64"
+          />
+        </div>
+      )}
+
+      {/* When a banner is present the content floats up to overlap its lower
+          edge (the first card straddles the seam), matching how hotel booking
+          pages usually present their search box. */}
+      <main
+        className={cn(
+          "mx-auto max-w-5xl px-4",
+          embed ? "py-4" : showBanner ? "relative z-10 -mt-12 pb-10" : "py-6",
+        )}
+      >
         {children}
       </main>
     </div>

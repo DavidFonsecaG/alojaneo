@@ -4,8 +4,20 @@ import type {
   AvailabilityItem,
   BookingConfirmation,
   BookingRequest,
+  HotelInfo,
   SearchParams,
 } from "../types";
+
+// GET /public/:hotelSlug — hotel name, currency and branding. Cached longer
+// than availability since it rarely changes within a session.
+export function useHotel(hotelSlug: string | undefined) {
+  return useQuery({
+    queryKey: ["hotel", hotelSlug],
+    queryFn: () => api.get<HotelInfo>(`/public/${hotelSlug}`),
+    enabled: !!hotelSlug,
+    staleTime: 5 * 60_000,
+  });
+}
 
 // GET /public/:hotelSlug/availability — enabled only once a search has been
 // submitted (all three params present).

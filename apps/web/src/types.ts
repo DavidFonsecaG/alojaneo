@@ -119,6 +119,16 @@ export interface Payment {
   created_at: string;
 }
 
+// GET /hotel/profile — identity + public booking-engine branding.
+export interface HotelProfile {
+  id: string;
+  name: string;
+  slug: string;
+  banner_url: string | null;
+  accent_color: string | null;
+  created_at: string;
+}
+
 export interface Guest {
   id: string;
   first_name: string;

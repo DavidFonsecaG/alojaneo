@@ -5,7 +5,14 @@ import {
   type QueryKey,
 } from "@tanstack/react-query";
 import { api } from "./api";
-import type { Guest, RatePlan, Room, RoomType, RoomTypePhoto } from "../types";
+import type {
+  Guest,
+  HotelProfile,
+  RatePlan,
+  Room,
+  RoomType,
+  RoomTypePhoto,
+} from "../types";
 
 // Small helper: a mutation that invalidates one or more query keys on success.
 function useInvalidatingMutation<TArgs, TResult>(
@@ -19,6 +26,30 @@ function useInvalidatingMutation<TArgs, TResult>(
       for (const key of keys) qc.invalidateQueries({ queryKey: key });
     },
   });
+}
+
+// ── Hotel profile + booking-engine branding ─────────────────────────
+export function useHotelProfile() {
+  return useQuery({
+    queryKey: ["hotel-profile"],
+    queryFn: () => api.get<HotelProfile>("/hotel/profile"),
+  });
+}
+
+export interface HotelProfileInput {
+  name?: string;
+  slug?: string;
+  // "" clears the banner / resets the accent to the engine default.
+  bannerUrl?: string;
+  accentColor?: string;
+}
+
+export function useUpdateHotelProfile() {
+  return useInvalidatingMutation(
+    (input: HotelProfileInput) =>
+      api.patch<HotelProfile>("/hotel/profile", input),
+    [["hotel-profile"]],
+  );
 }
 
 // ── Room types ──────────────────────────────────────────────────────

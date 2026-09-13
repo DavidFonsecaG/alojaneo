@@ -20,6 +20,11 @@ export const hotels = pgTable("hotels", {
   taxRate: integer("tax_rate"), // basis points (e.g. 1500 = 15.00% IVA)
   tourismTaxRate: integer("tourism_tax_rate"), // optional local tourism tax, basis points
   currency: text("currency").notNull().default("USD"),
+  // Public booking-engine branding (see migration 0007). bannerUrl is a base64
+  // data URL for the MVP (same approach as room_type_photos); accentColor is a
+  // "#rrggbb" hex the engine maps onto its theme tokens.
+  bannerUrl: text("banner_url"),
+  accentColor: text("accent_color"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
