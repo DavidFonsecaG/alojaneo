@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { Button, Card, Field, Input, Select, Spinner } from "../components/ui";
+import { DateRangePicker } from "../components/DateRangePicker";
 import { amenityLabel } from "../lib/amenities";
 import { ApiError } from "../lib/api";
 import { useAvailability, useCreateBooking, useHotel } from "../lib/booking";
@@ -38,6 +39,12 @@ const uid = () =>
 
 const today = new Date();
 const tomorrow = new Date(today.getTime() + 86_400_000);
+// Midnight today — the earliest selectable date in the range picker.
+const minDate = new Date(
+  today.getFullYear(),
+  today.getMonth(),
+  today.getDate(),
+);
 
 export function BookingPage() {
   const { hotelSlug } = useParams<{ hotelSlug: string }>();
@@ -359,24 +366,17 @@ function SearchBar({
     <Card className="p-4">
       <form
         onSubmit={onSubmit}
-        className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end"
+        className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end"
       >
-        <Field label="Check-in" htmlFor="ci">
-          <Input
-            id="ci"
-            type="date"
-            value={checkIn}
-            min={toApiDate(today)}
-            onChange={(e) => onCheckIn(e.target.value)}
-          />
-        </Field>
-        <Field label="Check-out" htmlFor="co">
-          <Input
-            id="co"
-            type="date"
-            value={checkOut}
-            min={checkIn}
-            onChange={(e) => onCheckOut(e.target.value)}
+        <Field label="Dates">
+          <DateRangePicker
+            checkIn={checkIn}
+            checkOut={checkOut}
+            minDate={minDate}
+            onChange={(ci, co) => {
+              onCheckIn(ci);
+              onCheckOut(co);
+            }}
           />
         </Field>
         <Field label="Guests" htmlFor="g">
@@ -393,7 +393,7 @@ function SearchBar({
             ))}
           </Select>
         </Field>
-        <Button type="submit" size="md" disabled={disabled}>
+        <Button type="submit" size="md" className="px-8" disabled={disabled}>
           {disabled && <Spinner />}
           Search
         </Button>
@@ -473,7 +473,12 @@ function RoomTypeCard({
             </ul>
           )}
 
-          <div className="mt-4 space-y-2 border-t border-border pt-4">
+          {/* Spacer keeps a minimum gap and eats any extra height, pinning the
+              divider + rates to the bottom of the card so they line up with the
+              bottom of the photo regardless of how much text sits above. */}
+          <div className="min-h-4 grow" aria-hidden />
+
+          <div className="space-y-2 border-t border-border pt-4">
             {ratePlans.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No online rates for these dates.
