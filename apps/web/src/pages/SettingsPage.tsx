@@ -4,6 +4,7 @@ import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Spinner } from "../components/ui/spinner";
+import { cn } from "../lib/utils";
 import { useAuth } from "../lib/auth";
 import { useHotelProfile, useUpdateHotelProfile } from "../lib/setup";
 import { RoomsSetup } from "./RoomsPage";
@@ -14,7 +15,15 @@ const BOOKING_URL =
 // Default accent shown in the picker before a hotel has chosen one (matches the
 // engine's default ink primary).
 const DEFAULT_ACCENT = "#171717";
+const DEFAULT_POSITION = 50;
 const MAX_BANNER_BYTES = 4 * 1024 * 1024;
+
+type TabId = "booking" | "rooms";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "booking", label: "Booking engine" },
+  { id: "rooms", label: "Rooms" },
+];
 
 // Property configuration, admin-only. Room/room-type setup lives here so the
 // Rooms nav page can stay a pure operations board. The API also enforces the
@@ -22,6 +31,7 @@ const MAX_BANNER_BYTES = 4 * 1024 * 1024;
 export function SettingsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const [tab, setTab] = useState<TabId>("booking");
 
   return (
     <div className="space-y-6">
@@ -29,8 +39,30 @@ export function SettingsPage() {
 
       {isAdmin ? (
         <>
-          <BrandingSettings />
-          <RoomsSetup />
+          <div className="border-b border-border">
+            <nav className="-mb-px flex gap-1">
+              {TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={cn(
+                    "relative px-4 py-2.5 text-sm font-medium transition-colors",
+                    tab === t.id
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.label}
+                  {tab === t.id && (
+                    <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-neutral-900" />
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {tab === "booking" ? <BrandingSettings /> : <RoomsSetup />}
         </>
       ) : (
         <p className="rounded-3xl bg-card p-6 text-sm text-muted-foreground shadow-sm">
@@ -50,14 +82,16 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-// Booking-engine branding: the banner image guests see and the accent color
-// applied to the engine's buttons and links.
+// Booking-engine branding: the banner image guests see (with an adjustable
+// vertical focal point) and the accent color applied to the engine's buttons
+// and links.
 function BrandingSettings() {
   const profile = useHotelProfile();
   const update = useUpdateHotelProfile();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [banner, setBanner] = useState<string | null>(null);
+  const [position, setPosition] = useState<number>(DEFAULT_POSITION);
   const [accent, setAccent] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
@@ -66,12 +100,14 @@ function BrandingSettings() {
   useEffect(() => {
     if (!p) return;
     setBanner(p.banner_url);
+    setPosition(p.banner_position ?? DEFAULT_POSITION);
     setAccent(p.accent_color ?? "");
-  }, [p?.banner_url, p?.accent_color]);
+  }, [p?.banner_url, p?.banner_position, p?.accent_color]);
 
   const bannerDirty = !!p && banner !== (p.banner_url ?? null);
+  const positionDirty = !!p && position !== (p.banner_position ?? DEFAULT_POSITION);
   const accentDirty = !!p && (accent || null) !== (p.accent_color ?? null);
-  const dirty = bannerDirty || accentDirty;
+  const dirty = bannerDirty || positionDirty || accentDirty;
 
   async function onPickFile(e: FormEvent<HTMLInputElement>) {
     const file = e.currentTarget.files?.[0];
@@ -93,9 +129,11 @@ function BrandingSettings() {
   function save() {
     const input: {
       bannerUrl?: string;
+      bannerPosition?: number;
       accentColor?: string;
     } = {};
     if (bannerDirty) input.bannerUrl = banner ?? ""; // "" clears
+    if (positionDirty) input.bannerPosition = position;
     if (accentDirty) input.accentColor = accent || ""; // "" resets to default
     update.mutate(input, {
       onError: () => setError("Couldn't save branding. Please try again."),
@@ -106,6 +144,7 @@ function BrandingSettings() {
   function reset() {
     if (!p) return;
     setBanner(p.banner_url);
+    setPosition(p.banner_position ?? DEFAULT_POSITION);
     setAccent(p.accent_color ?? "");
     setError(null);
   }
@@ -148,6 +187,7 @@ function BrandingSettings() {
                   <img
                     src={banner}
                     alt="Banner preview"
+                    style={{ objectPosition: `center ${position}%` }}
                     className="h-40 w-full object-cover"
                   />
                 ) : (
@@ -158,7 +198,34 @@ function BrandingSettings() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Vertical focal point — only meaningful with a banner set. */}
+              {banner && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Vertical position
+                    </span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {position}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={position}
+                    onChange={(e) => setPosition(Number(e.target.value))}
+                    aria-label="Banner vertical position"
+                    className="w-full accent-neutral-900"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Drag to choose which part of the image shows when it's
+                    cropped to the banner.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
                 <input
                   ref={fileInput}
                   type="file"
@@ -193,7 +260,7 @@ function BrandingSettings() {
             <div className="space-y-2">
               <div className="text-sm font-medium">Accent color</div>
               <p className="text-xs text-muted-foreground">
-                Applied to the booking page's buttons and links.
+                Applied to the booking page's header, buttons and links.
               </p>
               <div className="flex items-center gap-3">
                 <input

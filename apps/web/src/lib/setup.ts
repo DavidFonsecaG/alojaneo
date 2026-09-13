@@ -41,6 +41,7 @@ export interface HotelProfileInput {
   slug?: string;
   // "" clears the banner / resets the accent to the engine default.
   bannerUrl?: string;
+  bannerPosition?: number; // 0–100 (%)
   accentColor?: string;
 }
 

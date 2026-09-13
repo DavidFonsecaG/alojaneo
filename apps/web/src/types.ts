@@ -125,6 +125,7 @@ export interface HotelProfile {
   name: string;
   slug: string;
   banner_url: string | null;
+  banner_position: number; // 0–100 (%) vertical focal point
   accent_color: string | null;
   created_at: string;
 }

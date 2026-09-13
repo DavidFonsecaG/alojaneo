@@ -28,6 +28,7 @@ const updateProfileSchema = z
     // Branding for the public booking engine. An empty string clears the value
     // (removes the banner / resets to the default accent).
     bannerUrl: z.string().max(8_000_000).optional(),
+    bannerPosition: z.number().int().min(0).max(100).optional(),
     accentColor: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, "accentColor must be a hex like #0c4a6e")
@@ -82,7 +83,7 @@ export async function hotelSettingsRoutes(app: FastifyInstance) {
 
   app.get("/hotel/profile", async (req, reply) => {
     const [profile] = await sqlUnscoped`
-      select id, name, slug, banner_url, accent_color, created_at
+      select id, name, slug, banner_url, banner_position, accent_color, created_at
       from hotels
       where id = ${req.hotelId}
     `;
@@ -112,13 +113,14 @@ export async function hotelSettingsRoutes(app: FastifyInstance) {
               ? sqlUnscoped`banner_url`
               : body.bannerUrl || null
           },
+          banner_position = coalesce(${body.bannerPosition ?? null}, banner_position),
           accent_color = ${
             body.accentColor === undefined
               ? sqlUnscoped`accent_color`
               : body.accentColor || null
           }
         where id = ${req.hotelId}
-        returning id, name, slug, banner_url, accent_color, created_at
+        returning id, name, slug, banner_url, banner_position, accent_color, created_at
       `;
 
       if (!updated) {

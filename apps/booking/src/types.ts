@@ -8,6 +8,7 @@ export interface HotelInfo {
   slug: string;
   currency: string;
   bannerUrl: string | null;
+  bannerPosition: number; // 0–100 (%) vertical focal point
   accentColor: string | null;
 }
 

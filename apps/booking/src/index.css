@@ -24,6 +24,9 @@
     --input: 0 0% 90%;
     --ring: 217 91% 60%;
     --radius: 0.5rem;
+    /* The scrollbar keeps this fixed neutral ink even when a hotel's accent
+       color overrides --primary, so the chrome never takes on the brand hue. */
+    --scrollbar-thumb: 0 0% 9%;
   }
 
   * {
@@ -40,7 +43,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--background));
+    scrollbar-color: hsl(var(--scrollbar-thumb) / 0.5) hsl(var(--background));
   }
   *::-webkit-scrollbar {
     width: 6px;
@@ -48,7 +51,7 @@
   }
   *::-webkit-scrollbar-thumb {
     border-radius: 9999px;
-    background-color: hsl(var(--primary) / 0.5);
+    background-color: hsl(var(--scrollbar-thumb) / 0.5);
   }
   *::-webkit-scrollbar-track {
     background-color: hsl(var(--background));

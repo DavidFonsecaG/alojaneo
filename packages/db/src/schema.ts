@@ -24,6 +24,8 @@ export const hotels = pgTable("hotels", {
   // data URL for the MVP (same approach as room_type_photos); accentColor is a
   // "#rrggbb" hex the engine maps onto its theme tokens.
   bannerUrl: text("banner_url"),
+  // Vertical focal point for the banner, 0–100 (%). 50 = centered.
+  bannerPosition: integer("banner_position").notNull().default(50),
   accentColor: text("accent_color"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

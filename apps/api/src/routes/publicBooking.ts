@@ -37,7 +37,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
     const { hotelSlug } = req.params as { hotelSlug: string };
 
     const [hotel] = await sqlUnscoped`
-      select name, slug, currency, banner_url, accent_color
+      select name, slug, currency, banner_url, banner_position, accent_color
       from hotels
       where slug = ${hotelSlug}
     `;
@@ -51,6 +51,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
       slug: hotel.slug,
       currency: hotel.currency,
       bannerUrl: hotel.banner_url,
+      bannerPosition: hotel.banner_position,
       accentColor: hotel.accent_color,
     };
   });

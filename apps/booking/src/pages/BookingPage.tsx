@@ -164,6 +164,7 @@ export function BookingPage() {
       <Shell
         hotelName={hotel.data?.name}
         bannerUrl={hotel.data?.bannerUrl ?? null}
+        bannerPosition={hotel.data?.bannerPosition ?? 50}
         embed={embed}
       >
         <ConfirmationView
@@ -183,6 +184,7 @@ export function BookingPage() {
     <Shell
       hotelName={hotel.data?.name}
       bannerUrl={hotel.data?.bannerUrl ?? null}
+      bannerPosition={hotel.data?.bannerPosition ?? 50}
       embed={embed}
     >
       <SearchBar
@@ -265,11 +267,13 @@ export function BookingPage() {
 function Shell({
   hotelName,
   bannerUrl,
+  bannerPosition = 50,
   embed,
   children,
 }: {
   hotelName: string | undefined;
   bannerUrl: string | null;
+  bannerPosition?: number;
   embed?: boolean;
   children: React.ReactNode;
 }) {
@@ -281,22 +285,22 @@ function Shell({
           embedded on a hotel's own site, their page already provides those, so
           we drop them and let the engine fill the iframe. */}
       {!embed && (
-        <header className="border-b border-border bg-card">
+        <header className="bg-primary text-primary-foreground">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
             <div className="flex items-center gap-2">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-primary-foreground/15">
                 <BedDouble className="h-5 w-5" />
               </span>
               <div className="leading-tight">
                 <div className="text-sm font-semibold">{title}</div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-primary-foreground/70">
                   Direct booking
                 </div>
               </div>
             </div>
             <Link
               to="/"
-              className="text-sm text-muted-foreground hover:text-foreground"
+              className="text-sm text-primary-foreground/80 hover:text-primary-foreground"
             >
               Change hotel
             </Link>
@@ -309,6 +313,7 @@ function Shell({
           <img
             src={bannerUrl!}
             alt={title}
+            style={{ objectPosition: `center ${bannerPosition}%` }}
             className="h-52 w-full object-cover sm:h-64"
           />
         </div>
@@ -506,7 +511,7 @@ function RoomTypeCard({
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
+                      className="px-7"
                       disabled={remaining <= 0}
                       onClick={() => onAdd(rp)}
                     >
