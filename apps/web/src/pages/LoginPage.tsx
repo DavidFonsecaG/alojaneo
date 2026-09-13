@@ -1,17 +1,35 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
-import { Hotel } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { ApiError } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input, Label } from "../components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Spinner } from "../components/ui/spinner";
+import calendarPreview from "../assets/calendar-preview.png";
 
 type Mode = "login" | "signup";
 
 interface LocationState {
   from?: { pathname: string };
+}
+
+// The hexagon brand mark used in the app sidebar.
+function BrandMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    </svg>
+  );
 }
 
 export function LoginPage() {
@@ -21,6 +39,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form fields
   const [email, setEmail] = useState("");
@@ -34,6 +53,8 @@ export function LoginPage() {
   if (isAuthenticated) {
     return <Navigate to={redirectTo} replace />;
   }
+
+  const isSignup = mode === "signup";
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -57,25 +78,35 @@ export function LoginPage() {
     }
   }
 
+  function switchMode() {
+    setMode(isSignup ? "login" : "signup");
+    setError(null);
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
-            <Hotel className="h-6 w-6 text-primary" />
-          </div>
-          <CardTitle>
-            {mode === "login" ? "Sign in" : "Create your hotel"}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {mode === "login"
-              ? "Access your reservation dashboard"
-              : "Set up a new hotel account"}
+    <div className="min-h-screen bg-background lg:grid lg:grid-cols-2">
+      {/* ── Left: form ─────────────────────────────────────────────── */}
+      <div className="relative flex min-h-screen flex-col justify-center px-6 py-14 sm:px-12 lg:px-16">
+        {/* Brand mark, top-left */}
+        <div className="absolute left-6 top-8 flex items-center gap-2 sm:left-12 lg:left-16">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-neutral-900 text-white">
+            <BrandMark className="h-5 w-5" />
+          </span>
+          <span className="text-lg font-semibold">Alojaneo</span>
+        </div>
+
+        <div className="mx-auto w-full max-w-sm">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {isSignup ? "Get started now" : "Welcome back"}
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {isSignup
+              ? "Create your hotel account to get going."
+              : "Enter your credentials to access your dashboard."}
           </p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
-            {mode === "signup" && (
+
+          <form onSubmit={onSubmit} className="mt-8 space-y-4">
+            {isSignup && (
               <>
                 <div className="space-y-1.5">
                   <Label htmlFor="hotelName">Hotel name</Label>
@@ -109,7 +140,7 @@ export function LoginPage() {
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email address</Label>
               <Input
                 id="email"
                 type="email"
@@ -123,17 +154,31 @@ export function LoginPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete={
-                  mode === "login" ? "current-password" : "new-password"
-                }
-                minLength={mode === "signup" ? 8 : undefined}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={isSignup ? "min 8 chars" : "••••••••"}
+                  autoComplete={isSignup ? "new-password" : "current-password"}
+                  minLength={isSignup ? 8 : undefined}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {error && (
@@ -142,45 +187,57 @@ export function LoginPage() {
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={submitting}
+            >
               {submitting && <Spinner />}
-              {mode === "login" ? "Sign in" : "Create account"}
+              {isSignup ? "Create account" : "Sign in"}
             </Button>
           </form>
 
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "login" ? (
-              <>
-                No account yet?{" "}
-                <button
-                  type="button"
-                  className="font-medium text-blue-500 hover:underline"
-                  onClick={() => {
-                    setMode("signup");
-                    setError(null);
-                  }}
-                >
-                  Create a hotel
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  className="font-medium text-blue-500 hover:underline"
-                  onClick={() => {
-                    setMode("login");
-                    setError(null);
-                  }}
-                >
-                  Sign in
-                </button>
-              </>
-            )}
+          <p className="mt-6 text-sm text-muted-foreground">
+            {isSignup ? "Have an account?" : "Don't have an account?"}{" "}
+            <button
+              type="button"
+              className="font-medium text-foreground hover:underline"
+              onClick={switchMode}
+            >
+              {isSignup ? "Sign in" : "Sign up"}
+            </button>
+          </p>
+        </div>
+
+        <p className="absolute inset-x-0 bottom-6 text-center text-xs text-muted-foreground">
+          © {new Date().getFullYear()} Alojaneo. All rights reserved.
+        </p>
+      </div>
+
+      {/* ── Right: brand panel (desktop only) ──────────────────────── */}
+      <div className="hidden p-3 lg:block">
+        <div className="relative flex h-full flex-col overflow-hidden rounded-3xl bg-neutral-900 p-12 text-white">
+          <div className="max-w-md">
+            <h2 className="text-4xl font-semibold leading-tight tracking-tight">
+              The simplest way to run your hotel
+            </h2>
+            <p className="mt-4 text-white/70">
+              Reservations, housekeeping, rates and a direct booking engine —
+              all in one place.
+            </p>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Real calendar screenshot, peeking up from the bottom */}
+          <div className="relative mt-10 flex-1">
+            <img
+              src={calendarPreview}
+              alt="The Alojaneo calendar"
+              className="absolute left-1/2 top-0 w-[112%] max-w-none -translate-x-1/2 rounded-2xl border border-white/10 shadow-2xl"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
