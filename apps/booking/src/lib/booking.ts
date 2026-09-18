@@ -41,6 +41,20 @@ export function useAvailability(
   });
 }
 
+// The up-front deposit for a stay, mirroring the server's computeDepositCents
+// so checkout can show what will be charged now before the booking is made.
+export function depositCents(
+  deposit: { type: string | null; percentage: number | null } | undefined,
+  totalCents: number,
+): number {
+  if (!deposit) return 0;
+  if (deposit.type === "full") return totalCents;
+  if (deposit.type === "percentage" && deposit.percentage && deposit.percentage > 0) {
+    return Math.min(totalCents, Math.round((totalCents * deposit.percentage) / 100));
+  }
+  return 0;
+}
+
 // POST /public/:hotelSlug/bookings
 export function useCreateBooking(hotelSlug: string | undefined) {
   return useMutation({

@@ -13,7 +13,12 @@ import { Button, Card, Field, Input, Select, Spinner } from "../components/ui";
 import { DateRangePicker } from "../components/DateRangePicker";
 import { amenityLabel } from "../lib/amenities";
 import { ApiError } from "../lib/api";
-import { useAvailability, useCreateBooking, useHotel } from "../lib/booking";
+import {
+  depositCents,
+  useAvailability,
+  useCreateBooking,
+  useHotel,
+} from "../lib/booking";
 import { hexToHslTriplet, readableForegroundTriplet } from "../lib/color";
 import { formatDate, formatMoney, nights, toApiDate } from "../lib/format";
 import { cn } from "../lib/utils";
@@ -151,6 +156,7 @@ export function BookingPage() {
     0,
   );
   const currency = cart[0]?.ratePlan.currency ?? "USD";
+  const payNow = depositCents(hotel.data?.deposit, total);
 
   if (hotel.isError) {
     return (
@@ -259,6 +265,7 @@ export function BookingPage() {
                 cart={cart}
                 submitted={submitted}
                 total={total}
+                payNow={payNow}
                 currency={currency}
                 onBack={() => setStep("browse")}
                 onConfirmed={setConfirmation}
@@ -656,6 +663,7 @@ function CheckoutForm({
   cart,
   submitted,
   total,
+  payNow,
   currency,
   onBack,
   onConfirmed,
@@ -664,6 +672,7 @@ function CheckoutForm({
   cart: CartLine[];
   submitted: SearchParams;
   total: number;
+  payNow: number;
   currency: string;
   onBack: () => void;
   onConfirmed: (c: BookingConfirmation) => void;
@@ -757,11 +766,33 @@ function CheckoutForm({
           />
         </Field>
 
-        <div className="flex items-baseline justify-between border-t border-border pt-3">
-          <span className="text-sm font-semibold">Total</span>
-          <span className="text-xl font-bold tabular-nums">
-            {formatMoney(total, currency)}
-          </span>
+        <div className="space-y-2 border-t border-border pt-3">
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm text-muted-foreground">Total</span>
+            <span className="text-sm font-semibold tabular-nums">
+              {formatMoney(total, currency)}
+            </span>
+          </div>
+          {payNow > 0 ? (
+            <>
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-semibold">Pay now</span>
+                <span className="text-xl font-bold tabular-nums">
+                  {formatMoney(payNow, currency)}
+                </span>
+              </div>
+              {total - payNow > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Balance of {formatMoney(total - payNow, currency)} due at the
+                  property.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No prepayment required — pay at the property.
+            </p>
+          )}
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -773,7 +804,9 @@ function CheckoutForm({
           disabled={create.isPending}
         >
           {create.isPending && <Spinner />}
-          Confirm booking
+          {payNow > 0
+            ? `Pay ${formatMoney(payNow, currency)} & confirm`
+            : "Confirm booking"}
         </Button>
       </form>
     </Card>
@@ -815,12 +848,29 @@ function ConfirmationView({
             label="Rooms"
             value={`${c.rooms.length} · ${stayNights} night${stayNights === 1 ? "" : "s"}`}
           />
+          <Row label="Booking ref" value={c.bookingRef} />
           <div className="flex items-center justify-between border-t border-border pt-2.5">
             <dt className="font-semibold">Total</dt>
             <dd className="text-lg font-bold tabular-nums">
               {formatMoney(c.totalAmountCents, c.currency)}
             </dd>
           </div>
+          {c.payment.status === "completed" && (
+            <>
+              <div className="flex items-center justify-between">
+                <dt className="text-emerald-600">Paid now</dt>
+                <dd className="font-medium tabular-nums text-emerald-600">
+                  {formatMoney(c.payment.amountCents, c.currency)}
+                </dd>
+              </div>
+              {c.payment.balanceDueCents > 0 && (
+                <Row
+                  label="Balance at property"
+                  value={formatMoney(c.payment.balanceDueCents, c.currency)}
+                />
+              )}
+            </>
+          )}
         </dl>
 
         <Button

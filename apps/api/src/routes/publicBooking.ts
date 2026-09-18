@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { sqlUnscoped, withTenant } from "../db.js";
+import { computeDepositCents, getPaymentAdapter } from "../payments/index.js";
 
 const availabilityQuerySchema = z.object({
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "checkIn must be YYYY-MM-DD"),
@@ -37,7 +38,8 @@ export async function publicBookingRoutes(app: FastifyInstance) {
     const { hotelSlug } = req.params as { hotelSlug: string };
 
     const [hotel] = await sqlUnscoped`
-      select name, slug, currency, banner_url, banner_position, accent_color
+      select name, slug, currency, banner_url, banner_position, accent_color,
+             deposit_policy_type, deposit_percentage
       from hotels
       where slug = ${hotelSlug}
     `;
@@ -53,6 +55,11 @@ export async function publicBookingRoutes(app: FastifyInstance) {
       bannerUrl: hotel.banner_url,
       bannerPosition: hotel.banner_position,
       accentColor: hotel.accent_color,
+      // What the guest pays up front, so checkout can show it before booking.
+      deposit: {
+        type: hotel.deposit_policy_type,
+        percentage: hotel.deposit_percentage,
+      },
     };
   });
 
@@ -168,7 +175,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
     const body = bookingBodySchema.parse(req.body);
 
     const [hotel] = await sqlUnscoped`
-      select id, name, slug, currency
+      select id, name, slug, currency, deposit_policy_type, deposit_percentage
       from hotels
       where slug = ${hotelSlug}
     `;
@@ -301,6 +308,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
 
       return {
         reservationId: reservation.id,
+        bookingRef: reservation.booking_ref,
         hotelName: hotel.name,
         guest: {
           firstName: guest.first_name,
@@ -336,6 +344,69 @@ export async function publicBookingRoutes(app: FastifyInstance) {
       throw err;
     }
 
-    return reply.code(201).send(result);
+    // ── Deposit / payment ──────────────────────────────────────────────
+    // The reservation exists; now collect the up-front deposit (if the hotel
+    // requires one) through the configured gateway. The charge is an external
+    // call, so it runs after the create transaction has committed.
+    const totalCents = result.totalAmountCents as number;
+    const depositCents = computeDepositCents(
+      hotel.deposit_policy_type,
+      hotel.deposit_percentage,
+      totalCents,
+    );
+
+    let payment: {
+      status: "none" | "completed" | "failed";
+      amountCents: number;
+      balanceDueCents: number;
+      method: string | null;
+      transactionId: string | null;
+    } = {
+      status: "none",
+      amountCents: 0,
+      balanceDueCents: totalCents,
+      method: null,
+      transactionId: null,
+    };
+
+    if (depositCents > 0) {
+      const adapter = getPaymentAdapter();
+      const charge = await adapter.charge({
+        amountCents: depositCents,
+        currency: result.currency ?? hotel.currency ?? "USD",
+        reference: result.bookingRef,
+        description: `Booking ${result.bookingRef} — ${hotel.name}`,
+        customerEmail: result.guest.email ?? undefined,
+      });
+
+      // Record the attempt (completed or failed) for the audit trail.
+      await withTenant(hotelId, (tx) =>
+        tx`
+          insert into payments (hotel_id, reservation_id, amount_cents, currency, method, status, reference)
+          values (${hotelId}, ${result.reservationId}, ${depositCents}, ${result.currency ?? "USD"}, ${adapter.name}, ${charge.status}, ${charge.transactionId})
+        `,
+      );
+
+      if (charge.status === "failed") {
+        // A declined deposit shouldn't hold inventory — release the rooms.
+        await withTenant(hotelId, (tx) =>
+          tx`update reservation_rooms set status = 'cancelled' where reservation_id = ${result.reservationId}`,
+        );
+        return reply.code(402).send({
+          error: charge.error ?? "Payment was declined.",
+          bookingRef: result.bookingRef,
+        });
+      }
+
+      payment = {
+        status: "completed",
+        amountCents: depositCents,
+        balanceDueCents: totalCents - depositCents,
+        method: adapter.name,
+        transactionId: charge.transactionId,
+      };
+    }
+
+    return reply.code(201).send({ ...result, payment });
   });
 }

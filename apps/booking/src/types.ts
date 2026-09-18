@@ -10,6 +10,8 @@ export interface HotelInfo {
   bannerUrl: string | null;
   bannerPosition: number; // 0–100 (%) vertical focal point
   accentColor: string | null;
+  // Up-front deposit policy, so checkout can show what's charged now.
+  deposit: { type: string | null; percentage: number | null };
 }
 
 // One entry of GET /public/:hotelSlug/availability
@@ -56,15 +58,25 @@ export interface BookingRequest {
   checkOut: string;
 }
 
+export interface BookingPayment {
+  status: "none" | "completed" | "failed";
+  amountCents: number; // charged up front now
+  balanceDueCents: number; // remaining, due at the property
+  method: string | null; // gateway name, e.g. "mock"
+  transactionId: string | null;
+}
+
 // POST /public/:hotelSlug/bookings response
 export interface BookingConfirmation {
   reservationId: string;
+  bookingRef: string;
   hotelName: string;
   guest: { firstName: string; lastName: string; email: string };
   checkIn: string;
   checkOut: string;
   totalAmountCents: number;
   currency: string;
+  payment: BookingPayment;
   rooms: {
     id: string;
     roomId: string;
