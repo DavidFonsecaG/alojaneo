@@ -7,6 +7,7 @@ import {
   Users,
   Tags,
   Sparkles,
+  CreditCard,
   Settings,
   LogOut,
   ClipboardList,
@@ -31,6 +32,7 @@ const NAV: NavItem[] = [
   { to: "/rooms", label: "Rooms", icon: BedDouble, enabled: true },
   { to: "/rate-plans", label: "Rate plans", icon: Tags, enabled: true },
   { to: "/guests", label: "Guests", icon: Users, enabled: true },
+  { to: "/payments", label: "Payments", icon: CreditCard, enabled: true },
   { to: "/housekeeping", label: "Housekeeping", icon: Sparkles, enabled: false },
   { to: "/settings", label: "Settings", icon: Settings, enabled: true, adminOnly: true },
 ];

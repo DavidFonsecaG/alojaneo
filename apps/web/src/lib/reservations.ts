@@ -200,6 +200,28 @@ export function useCreatePayment(reservationId: string) {
   });
 }
 
+// Finance ledger: every payment for the hotel, joined to booking + guest.
+export function useAllPayments() {
+  return useQuery({
+    queryKey: ["payments-ledger"],
+    queryFn: () => api.get<Payment[]>("/payments"),
+  });
+}
+
+export function useRefundPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<Payment>(`/payments/${id}/refund`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payments-ledger"] });
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      qc.invalidateQueries({ queryKey: ["reservation"] });
+      qc.invalidateQueries({ queryKey: ["reservations"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 export function useAddNote(reservationId: string) {
   const qc = useQueryClient();
   return useMutation({

@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { withTenant } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { requirePermission } from "../middleware/requirePermission.js";
+import { getPaymentAdapter } from "../payments/index.js";
 
 const createPaymentSchema = z.object({
   reservationId: z.string().uuid(),
@@ -31,12 +33,22 @@ export async function paymentRoutes(app: FastifyInstance) {
   app.get("/payments", async (req) => {
     const { reservationId } = req.query as { reservationId?: string };
 
+    // Joined to reservation + guest so the finance ledger shows the booking ref
+    // and guest name; per-reservation callers just ignore the extra columns.
     return withTenant(req.hotelId, (tx) =>
-      reservationId
-        ? tx`select id, reservation_id, amount_cents, currency, method, status, reference, created_at
-             from payments where reservation_id = ${reservationId} order by created_at desc`
-        : tx`select id, reservation_id, amount_cents, currency, method, status, reference, created_at
-             from payments order by created_at desc`,
+      tx`
+        select
+          p.id, p.reservation_id, p.amount_cents, p.currency, p.method,
+          p.status, p.reference, p.created_at,
+          r.booking_ref,
+          g.first_name as guest_first_name,
+          g.last_name as guest_last_name
+        from payments p
+        join reservations r on r.id = p.reservation_id
+        join guests g on g.id = r.guest_id
+        where ${reservationId ? tx`p.reservation_id = ${reservationId}` : tx`true`}
+        order by p.created_at desc
+      `,
     );
   });
 
@@ -66,4 +78,51 @@ export async function paymentRoutes(app: FastifyInstance) {
     if (!updated) return reply.code(404).send({ error: "Payment not found" });
     return updated;
   });
+
+  // POST /payments/:id/refund — refund a completed payment in full. Gated to
+  // rooms/payment managers (admins bypass). Gateway-originated payments go back
+  // through the adapter; manually-recorded ones (cash, etc.) are just marked
+  // refunded (the cash is handed back at the desk).
+  app.post<{ Params: { id: string } }>(
+    "/payments/:id/refund",
+    { preHandler: requirePermission("payments", "manage") },
+    async (req, reply) => {
+      const { id } = req.params;
+
+      const [payment] = await withTenant(req.hotelId, (tx) =>
+        tx`select id, amount_cents, method, status, reference
+           from payments where id = ${id}`,
+      );
+
+      if (!payment) {
+        return reply.code(404).send({ error: "Payment not found" });
+      }
+      if (payment.status !== "completed") {
+        return reply.code(409).send({
+          error: `Only completed payments can be refunded (this one is ${payment.status}).`,
+        });
+      }
+
+      // Only round-trip to the gateway for payments it processed.
+      const adapter = getPaymentAdapter();
+      if (payment.method === adapter.name) {
+        const refund = await adapter.refund(
+          payment.reference ?? "",
+          payment.amount_cents,
+        );
+        if (refund.status === "failed") {
+          return reply.code(502).send({
+            error: refund.error ?? "Refund failed at the gateway.",
+          });
+        }
+      }
+
+      const [updated] = await withTenant(req.hotelId, (tx) =>
+        tx`update payments set status = 'refunded' where id = ${id}
+           returning id, reservation_id, amount_cents, currency, method, status, reference, created_at`,
+      );
+
+      return updated;
+    },
+  );
 }

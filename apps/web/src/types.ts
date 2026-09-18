@@ -107,16 +107,21 @@ export interface ReservationDetail {
 export type PaymentMethod = "cash" | "credit_card" | "bank_transfer";
 export type PaymentStatus = "pending" | "completed" | "refunded" | "failed";
 
-// GET /payments?reservationId= — payments recorded against a reservation.
+// GET /payments — payments recorded against a reservation. `method` is a
+// manual method (cash/…) or a gateway name (e.g. "mock"), so it's a free
+// string. The ledger view also gets the joined booking ref + guest name.
 export interface Payment {
   id: string;
   reservation_id: string;
   amount_cents: number;
   currency: string;
-  method: PaymentMethod;
+  method: string;
   status: PaymentStatus;
   reference: string | null;
   created_at: string;
+  booking_ref?: string;
+  guest_first_name?: string;
+  guest_last_name?: string;
 }
 
 // GET /hotel/profile — identity + public booking-engine branding.
