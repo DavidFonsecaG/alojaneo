@@ -9,14 +9,38 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "../components/ui/table";
+import { SortableHead, sortRows, useSort } from "../components/ui/sortable";
 import { CenteredSpinner } from "../components/ui/spinner";
 import { useReservations } from "../lib/reservations";
 import { formatDate, formatMoney, nights } from "../lib/format";
-import type { ReservationSummaryStatus } from "../types";
+import type { ReservationListItem, ReservationSummaryStatus } from "../types";
+
+// Comparable value per sort column.
+function reservationValue(r: ReservationListItem, key: string) {
+  switch (key) {
+    case "guest":
+      return `${r.guest_last_name} ${r.guest_first_name}`.toLowerCase();
+    case "check_in":
+      return r.check_in;
+    case "check_out":
+      return r.check_out;
+    case "nights":
+      return r.check_in && r.check_out ? nights(r.check_in, r.check_out) : null;
+    case "rooms":
+      return r.room_count;
+    case "status":
+      return r.status;
+    case "source":
+      return r.source;
+    case "total":
+      return r.total_amount_cents;
+    default:
+      return null;
+  }
+}
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "All statuses" },
@@ -32,6 +56,8 @@ export function ReservationsPage() {
   const { data, isLoading, isError, error } = useReservations(
     status ? { status } : {},
   );
+  const { sort, toggle } = useSort({ key: "check_in", dir: "desc" });
+  const rows = data ? sortRows(data, sort, reservationValue) : [];
 
   return (
     // Mirrors the Timeline page: header on the canvas, and only the content
@@ -82,18 +108,18 @@ export function ReservationsPage() {
           <Table containerClassName="min-h-0 flex-1">
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow>
-                <TableHead>Guest</TableHead>
-                <TableHead>Check-in</TableHead>
-                <TableHead>Check-out</TableHead>
-                <TableHead>Nights</TableHead>
-                <TableHead>Rooms</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <SortableHead label="Guest" sortKey="guest" sort={sort} onToggle={toggle} />
+                <SortableHead label="Check-in" sortKey="check_in" sort={sort} onToggle={toggle} />
+                <SortableHead label="Check-out" sortKey="check_out" sort={sort} onToggle={toggle} />
+                <SortableHead label="Nights" sortKey="nights" sort={sort} onToggle={toggle} />
+                <SortableHead label="Rooms" sortKey="rooms" sort={sort} onToggle={toggle} />
+                <SortableHead label="Status" sortKey="status" sort={sort} onToggle={toggle} />
+                <SortableHead label="Source" sortKey="source" sort={sort} onToggle={toggle} />
+                <SortableHead label="Total" sortKey="total" sort={sort} onToggle={toggle} align="right" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((r) => (
+              {rows.map((r) => (
                 <TableRow
                   key={r.id}
                   className="cursor-pointer"

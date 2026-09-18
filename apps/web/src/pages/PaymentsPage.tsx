@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
+import { SortableHead, sortRows, useSort } from "../components/ui/sortable";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
 import { useAllPayments, useRefundPayment } from "../lib/reservations";
 import { useAuth } from "../lib/auth";
@@ -33,6 +34,25 @@ const STATUS_STYLES: Record<PaymentStatus, string> = {
   refunded: "bg-slate-100 text-slate-600",
   failed: "bg-red-100 text-red-700",
 };
+
+function paymentValue(p: Payment, key: string) {
+  switch (key) {
+    case "date":
+      return p.created_at;
+    case "booking":
+      return p.booking_ref ?? null;
+    case "guest":
+      return `${p.guest_last_name ?? ""} ${p.guest_first_name ?? ""}`.toLowerCase();
+    case "method":
+      return p.method;
+    case "amount":
+      return p.amount_cents;
+    case "status":
+      return p.status;
+    default:
+      return null;
+  }
+}
 
 const prettyMethod = (m: string) =>
   m.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -73,6 +93,7 @@ export function PaymentsPage() {
   const [method, setMethod] = useState("");
   const [search, setSearch] = useState("");
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const { sort, toggle } = useSort({ key: "date", dir: "desc" });
 
   const all = payments.data ?? [];
   const currency = all[0]?.currency ?? "USD";
@@ -96,6 +117,8 @@ export function PaymentsPage() {
       return true;
     });
   }, [all, status, method, search]);
+
+  const sorted = useMemo(() => sortRows(rows, sort, paymentValue), [rows, sort]);
 
   // Totals over the filtered rows.
   const collected = sumWhere(rows, "completed");
@@ -166,17 +189,17 @@ export function PaymentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Booking</TableHead>
-                  <TableHead>Guest</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableHead label="Date" sortKey="date" sort={sort} onToggle={toggle} />
+                  <SortableHead label="Booking" sortKey="booking" sort={sort} onToggle={toggle} />
+                  <SortableHead label="Guest" sortKey="guest" sort={sort} onToggle={toggle} />
+                  <SortableHead label="Method" sortKey="method" sort={sort} onToggle={toggle} />
+                  <SortableHead label="Amount" sortKey="amount" sort={sort} onToggle={toggle} align="right" />
+                  <SortableHead label="Status" sortKey="status" sort={sort} onToggle={toggle} />
                   {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((p) => (
+                {sorted.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {new Date(p.created_at).toLocaleDateString()}
