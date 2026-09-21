@@ -33,10 +33,11 @@ function BrandMark({ className }: { className?: string }) {
 }
 
 export function LoginPage() {
-  const { isAuthenticated, login, signup } = useAuth();
+  const { isAuthenticated, login, verifyCode, signup } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mode, setMode] = useState<Mode>("login");
+  const [step, setStep] = useState<"credentials" | "code">("credentials");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -44,6 +45,7 @@ export function LoginPage() {
   // Form fields
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [hotelName, setHotelName] = useState("");
   const [hotelSlug, setHotelSlug] = useState("");
 
@@ -55,18 +57,24 @@ export function LoginPage() {
   }
 
   const isSignup = mode === "signup";
+  const codeStep = !isSignup && step === "code";
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      if (mode === "login") {
-        await login(email, password);
-      } else {
+      if (isSignup) {
         await signup({ hotelName, hotelSlug, email, password });
+        navigate(redirectTo, { replace: true });
+      } else if (step === "credentials") {
+        await login(email, password);
+        setCode("");
+        setStep("code");
+      } else {
+        await verifyCode(email, code);
+        navigate(redirectTo, { replace: true });
       }
-      navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -80,6 +88,13 @@ export function LoginPage() {
 
   function switchMode() {
     setMode(isSignup ? "login" : "signup");
+    setStep("credentials");
+    setError(null);
+  }
+
+  function backToCredentials() {
+    setStep("credentials");
+    setCode("");
     setError(null);
   }
 
@@ -97,16 +112,40 @@ export function LoginPage() {
 
         <div className="mx-auto w-full max-w-sm">
           <h1 className="text-3xl font-semibold tracking-tight">
-            {isSignup ? "Get started now" : "Welcome back"}
+            {codeStep
+              ? "Check your email"
+              : isSignup
+                ? "Get started now"
+                : "Welcome back"}
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {isSignup
-              ? "Create your hotel account to get going."
-              : "Enter your credentials to access your dashboard."}
+            {codeStep
+              ? `Enter the 6-digit code we sent to ${email}.`
+              : isSignup
+                ? "Create your hotel account to get going."
+                : "Enter your credentials to access your dashboard."}
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
-            {isSignup && (
+            {codeStep && (
+              <div className="space-y-1.5">
+                <Label htmlFor="code">Verification code</Label>
+                <Input
+                  id="code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) =>
+                    setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  placeholder="123456"
+                  autoFocus
+                  required
+                  className="text-center text-lg tracking-[0.5em]"
+                />
+              </div>
+            )}
+            {!codeStep && isSignup && (
               <>
                 <div className="space-y-1.5">
                   <Label htmlFor="hotelName">Hotel name</Label>
@@ -139,6 +178,8 @@ export function LoginPage() {
               </>
             )}
 
+            {!codeStep && (
+              <>
             <div className="space-y-1.5">
               <Label htmlFor="email">Email address</Label>
               <Input
@@ -180,6 +221,8 @@ export function LoginPage() {
                 </button>
               </div>
             </div>
+              </>
+            )}
 
             {error && (
               <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -191,23 +234,39 @@ export function LoginPage() {
               type="submit"
               size="lg"
               className="w-full"
-              disabled={submitting}
+              disabled={submitting || (codeStep && code.length !== 6)}
             >
               {submitting && <Spinner />}
-              {isSignup ? "Create account" : "Sign in"}
+              {codeStep
+                ? "Verify & sign in"
+                : isSignup
+                  ? "Create account"
+                  : "Sign in"}
             </Button>
+
+            {codeStep && (
+              <button
+                type="button"
+                onClick={backToCredentials}
+                className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+              >
+                Use a different email
+              </button>
+            )}
           </form>
 
-          <p className="mt-6 text-sm text-muted-foreground">
-            {isSignup ? "Have an account?" : "Don't have an account?"}{" "}
-            <button
-              type="button"
-              className="font-medium text-foreground hover:underline"
-              onClick={switchMode}
-            >
-              {isSignup ? "Sign in" : "Sign up"}
-            </button>
-          </p>
+          {!codeStep && (
+            <p className="mt-6 text-sm text-muted-foreground">
+              {isSignup ? "Have an account?" : "Don't have an account?"}{" "}
+              <button
+                type="button"
+                className="font-medium text-foreground hover:underline"
+                onClick={switchMode}
+              >
+                {isSignup ? "Sign in" : "Sign up"}
+              </button>
+            </p>
+          )}
         </div>
 
         <p className="absolute inset-x-0 bottom-6 text-center text-xs text-muted-foreground">

@@ -20,8 +20,9 @@ export function verifyPassword(
   return bcrypt.compare(password, hash);
 }
 
+// Sessions last 24h, then the user logs in again (with a fresh email code).
 export function signToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "8h" });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
 }
 
 export function verifyToken(token: string): TokenPayload {

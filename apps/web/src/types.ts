@@ -28,6 +28,13 @@ export interface LoginResponse {
   permissions: Record<string, Record<string, boolean>> | null;
 }
 
+// POST /auth/login now returns a challenge — the code is emailed, and
+// POST /auth/verify-code exchanges it for the token.
+export interface LoginChallenge {
+  challenge: "code";
+  email: string;
+}
+
 export interface SignupResponse {
   token: string;
   hotel: AuthHotel;

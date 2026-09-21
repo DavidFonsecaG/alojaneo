@@ -8,7 +8,12 @@ import {
   type ReactNode,
 } from "react";
 import { api, getToken, setToken, setUnauthorizedHandler } from "./api";
-import type { LoginResponse, Role, SignupResponse } from "../types";
+import type {
+  LoginChallenge,
+  LoginResponse,
+  Role,
+  SignupResponse,
+} from "../types";
 
 type Permissions = Record<string, Record<string, boolean>> | null;
 
@@ -29,7 +34,9 @@ interface AuthContextValue {
   user: AuthState | null;
   permissions: Permissions;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  // Step 1: password → emailed code challenge. Step 2: verifyCode → session.
+  login: (email: string, password: string) => Promise<LoginChallenge>;
+  verifyCode: (email: string, code: string) => Promise<void>;
   signup: (input: SignupInput) => Promise<void>;
   logout: () => void;
 }
@@ -113,10 +120,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      const res = await api.post<LoginResponse>(
+    (email: string, password: string) =>
+      api.post<LoginChallenge>(
         "/auth/login",
         { email, password },
+        { skipAuthRedirect: true },
+      ),
+    [],
+  );
+
+  const verifyCode = useCallback(
+    async (email: string, code: string) => {
+      const res = await api.post<LoginResponse>(
+        "/auth/verify-code",
+        { email, code },
         { skipAuthRedirect: true },
       );
       applyToken(res.token, res.permissions);
@@ -141,10 +158,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       permissions,
       isAuthenticated: user != null,
       login,
+      verifyCode,
       signup,
       logout,
     }),
-    [user, permissions, login, signup, logout],
+    [user, permissions, login, verifyCode, signup, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

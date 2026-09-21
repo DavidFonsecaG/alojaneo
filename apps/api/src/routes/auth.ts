@@ -1,7 +1,28 @@
 import type { FastifyInstance } from "fastify";
+import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { sqlUnscoped, withUserContext } from "../db.js";
 import { hashPassword, verifyPassword, signToken } from "../lib/auth.js";
+import { getMailer } from "../mail/index.js";
+
+const CODE_TTL_MINUTES = 10;
+
+// Issue a fresh 6-digit login code for a user: invalidate any prior codes,
+// store the new one hashed, and email it. Returns nothing (the code only ever
+// leaves via email).
+async function issueLoginCode(userId: string, email: string): Promise<void> {
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const codeHash = await hashPassword(code);
+  await sqlUnscoped`
+    update login_codes set consumed_at = now()
+    where user_id = ${userId} and consumed_at is null
+  `;
+  await sqlUnscoped`
+    insert into login_codes (user_id, code_hash, expires_at)
+    values (${userId}, ${codeHash}, now() + make_interval(mins => ${CODE_TTL_MINUTES}))
+  `;
+  await getMailer().sendLoginCode(email, code);
+}
 
 const signupSchema = z.object({
   hotelName: z.string().min(1),
@@ -16,6 +37,11 @@ const signupSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+});
+
+const verifyCodeSchema = z.object({
+  email: z.string().email(),
+  code: z.string().regex(/^\d{6}$/, "code must be 6 digits"),
 });
 
 const defaultAdminPermissions = {
@@ -78,21 +104,55 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.code(201).send({ token, hotel: result.hotel });
   });
 
+  // Step 1: check the password, then email a one-time code. No token yet.
   app.post("/auth/login", async (req, reply) => {
     const body = loginSchema.parse(req.body);
 
     const [user] = await sqlUnscoped`
-      select id, password_hash from users where email = ${body.email}
+      select id, email, password_hash from users where email = ${body.email}
     `;
     if (!user || !(await verifyPassword(body.password, user.password_hash))) {
       return reply.code(401).send({ error: "Invalid email or password" });
     }
 
-    // A user could in theory belong to more than one hotel later; for this
-    // slice we take the first membership found. This is the one place we
-    // set app.current_user_id instead of app.current_hotel_id — see the
-    // hotel_users_self_lookup RLS policy for why a plain unscoped query
-    // would otherwise return zero rows here.
+    // Only members can log into the staff app — check before spending a code.
+    const [membership] = await withUserContext(
+      user.id,
+      (tx) =>
+        tx`select 1 from hotel_users where user_id = ${user.id} limit 1`,
+    );
+    if (!membership) {
+      return reply.code(403).send({ error: "User has no hotel membership" });
+    }
+
+    await issueLoginCode(user.id, user.email);
+    return reply.send({ challenge: "code", email: user.email });
+  });
+
+  // Step 2: verify the emailed code and issue the 24h session token.
+  app.post("/auth/verify-code", async (req, reply) => {
+    const body = verifyCodeSchema.parse(req.body);
+
+    const [user] = await sqlUnscoped`
+      select id from users where email = ${body.email}
+    `;
+    if (!user) return reply.code(401).send({ error: "Invalid or expired code" });
+
+    const [row] = await sqlUnscoped`
+      select id, code_hash from login_codes
+      where user_id = ${user.id} and consumed_at is null and expires_at > now()
+      order by created_at desc
+      limit 1
+    `;
+    if (!row || !(await verifyPassword(body.code, row.code_hash))) {
+      return reply.code(401).send({ error: "Invalid or expired code" });
+    }
+    await sqlUnscoped`
+      update login_codes set consumed_at = now() where id = ${row.id}
+    `;
+
+    // See the hotel_users_self_lookup RLS policy for why this uses
+    // withUserContext rather than a plain unscoped query.
     const [membership] = await withUserContext(user.id, (tx) => tx`
       select hotel_id, role, permissions from hotel_users where user_id = ${user.id} limit 1
     `);
@@ -105,7 +165,6 @@ export async function authRoutes(app: FastifyInstance) {
       hotelId: membership.hotel_id,
       role: membership.role,
     });
-
     return reply.send({ token, permissions: membership.permissions });
   });
 }
