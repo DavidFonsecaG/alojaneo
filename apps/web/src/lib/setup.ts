@@ -6,9 +6,14 @@ import {
 } from "@tanstack/react-query";
 import { api } from "./api";
 import type {
+  DepositPolicyType,
   Guest,
   HotelProfile,
+  HotelSettings,
+  HotelUser,
+  PermissionMatrix,
   RatePlan,
+  Role,
   Room,
   RoomType,
   RoomTypePhoto,
@@ -50,6 +55,69 @@ export function useUpdateHotelProfile() {
     (input: HotelProfileInput) =>
       api.patch<HotelProfile>("/hotel/profile", input),
     [["hotel-profile"]],
+  );
+}
+
+// ── Hotel settings (deposit policy, taxes) ──────────────────────────
+export function useHotelSettings() {
+  return useQuery({
+    queryKey: ["hotel-settings"],
+    queryFn: () => api.get<HotelSettings>("/hotel/settings"),
+  });
+}
+
+export interface HotelSettingsInput {
+  depositPolicyType?: DepositPolicyType;
+  depositPercentage?: number;
+}
+
+export function useUpdateHotelSettings() {
+  return useInvalidatingMutation(
+    (input: HotelSettingsInput) =>
+      api.patch<HotelSettings>("/hotel/settings", input),
+    [["hotel-settings"]],
+  );
+}
+
+// ── Users & permissions ─────────────────────────────────────────────
+export function useUsers() {
+  return useQuery({
+    queryKey: ["users"],
+    queryFn: () => api.get<HotelUser[]>("/users"),
+  });
+}
+
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  role: Role;
+  permissions?: PermissionMatrix;
+}
+
+export function useCreateUser() {
+  return useInvalidatingMutation(
+    (input: CreateUserInput) => api.post<HotelUser>("/users", input),
+    [["users"]],
+  );
+}
+
+export interface UpdateUserInput {
+  role?: Role;
+  permissions?: PermissionMatrix;
+}
+
+export function useUpdateUser() {
+  return useInvalidatingMutation(
+    ({ id, ...input }: UpdateUserInput & { id: string }) =>
+      api.patch<HotelUser>(`/users/${id}`, input),
+    [["users"]],
+  );
+}
+
+export function useDeleteUser() {
+  return useInvalidatingMutation(
+    (id: string) => api.del<void>(`/users/${id}`),
+    [["users"]],
   );
 }
 

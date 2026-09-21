@@ -7,6 +7,8 @@ import { Spinner } from "../components/ui/spinner";
 import { cn } from "../lib/utils";
 import { useAuth } from "../lib/auth";
 import { useHotelProfile, useUpdateHotelProfile } from "../lib/setup";
+import { DepositSettings } from "../components/DepositSettings";
+import { UsersSettings } from "../components/UsersSettings";
 import { RoomsSetup } from "./RoomsPage";
 
 const BOOKING_URL =
@@ -18,11 +20,13 @@ const DEFAULT_ACCENT = "#171717";
 const DEFAULT_POSITION = 50;
 const MAX_BANNER_BYTES = 4 * 1024 * 1024;
 
-type TabId = "booking" | "rooms";
+type TabId = "booking" | "deposits" | "rooms" | "users";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "booking", label: "Booking engine" },
+  { id: "deposits", label: "Deposits" },
   { id: "rooms", label: "Rooms" },
+  { id: "users", label: "Users" },
 ];
 
 // Property configuration, admin-only. Room/room-type setup lives here so the
@@ -62,7 +66,10 @@ export function SettingsPage() {
             </nav>
           </div>
 
-          {tab === "booking" ? <BrandingSettings /> : <RoomsSetup />}
+          {tab === "booking" && <BrandingSettings />}
+          {tab === "deposits" && <DepositSettings />}
+          {tab === "rooms" && <RoomsSetup />}
+          {tab === "users" && <UsersSettings />}
         </>
       ) : (
         <p className="rounded-3xl bg-card p-6 text-sm text-muted-foreground shadow-sm">

@@ -135,6 +135,30 @@ export interface HotelProfile {
   created_at: string;
 }
 
+// Granular permissions: { module: { action: boolean } }.
+export type PermissionMatrix = Record<string, Record<string, boolean>>;
+
+// GET /users — a hotel member (hotel_users row joined to the user's email).
+export interface HotelUser {
+  id: string; // hotel_users id
+  user_id: string;
+  email: string;
+  role: Role;
+  permissions: PermissionMatrix | null;
+  created_at: string;
+}
+
+export type DepositPolicyType = "none" | "percentage" | "full";
+
+// GET /hotel/settings
+export interface HotelSettings {
+  deposit_policy_type: DepositPolicyType;
+  deposit_percentage: number | null;
+  tax_rate: number | null;
+  tourism_tax_rate: number | null;
+  currency: string;
+}
+
 export interface Guest {
   id: string;
   first_name: string;
