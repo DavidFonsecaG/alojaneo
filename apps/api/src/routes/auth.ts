@@ -1,28 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { sqlUnscoped, withUserContext } from "../db.js";
 import { hashPassword, verifyPassword, signToken } from "../lib/auth.js";
-import { getMailer } from "../mail/index.js";
-
-const CODE_TTL_MINUTES = 10;
-
-// Issue a fresh 6-digit login code for a user: invalidate any prior codes,
-// store the new one hashed, and email it. Returns nothing (the code only ever
-// leaves via email).
-async function issueLoginCode(userId: string, email: string): Promise<void> {
-  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const codeHash = await hashPassword(code);
-  await sqlUnscoped`
-    update login_codes set consumed_at = now()
-    where user_id = ${userId} and consumed_at is null
-  `;
-  await sqlUnscoped`
-    insert into login_codes (user_id, code_hash, expires_at)
-    values (${userId}, ${codeHash}, now() + make_interval(mins => ${CODE_TTL_MINUTES}))
-  `;
-  await getMailer().sendLoginCode(email, code);
-}
+import { consumeLoginCode, issueLoginCode } from "../lib/loginCode.js";
 
 const signupSchema = z.object({
   hotelName: z.string().min(1),
@@ -44,7 +24,7 @@ const verifyCodeSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "code must be 6 digits"),
 });
 
-const defaultAdminPermissions = {
+export const defaultAdminPermissions = {
   reservations: { view: true, create: true, update: true, cancel: true },
   rooms: { view: true, manage: true },
   rate_plans: { view: true, manage: true },
@@ -138,18 +118,9 @@ export async function authRoutes(app: FastifyInstance) {
     `;
     if (!user) return reply.code(401).send({ error: "Invalid or expired code" });
 
-    const [row] = await sqlUnscoped`
-      select id, code_hash from login_codes
-      where user_id = ${user.id} and consumed_at is null and expires_at > now()
-      order by created_at desc
-      limit 1
-    `;
-    if (!row || !(await verifyPassword(body.code, row.code_hash))) {
+    if (!(await consumeLoginCode(user.id, body.code))) {
       return reply.code(401).send({ error: "Invalid or expired code" });
     }
-    await sqlUnscoped`
-      update login_codes set consumed_at = now() where id = ${row.id}
-    `;
 
     // See the hotel_users_self_lookup RLS policy for why this uses
     // withUserContext rather than a plain unscoped query.

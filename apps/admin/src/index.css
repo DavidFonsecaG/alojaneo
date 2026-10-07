@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Same neutral palette as the staff app so the brand reads consistently.
+       --primary (ink) drives the main CTAs; --ring (blue) is the focus accent. */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 217 91% 60%;
+    --radius: 0.5rem;
+    /* The scrollbar keeps this fixed neutral ink even when a hotel's accent
+       color overrides --primary, so the chrome never takes on the brand hue. */
+    --scrollbar-thumb: 0 0% 9%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: "Inter Variable", ui-sans-serif, system-ui, -apple-system,
+      "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--scrollbar-thumb) / 0.5) hsl(var(--background));
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: hsl(var(--scrollbar-thumb) / 0.5);
+  }
+  *::-webkit-scrollbar-track {
+    background-color: hsl(var(--background));
+  }
+}
+
+/* react-day-picker: map its palette onto our theme tokens so the range
+   endpoints and today marker follow the hotel's accent (--primary / --ring). */
+.rdp-root {
+  --rdp-accent-color: hsl(var(--primary));
+  --rdp-accent-background-color: hsl(var(--primary) / 0.12);
+  --rdp-today-color: hsl(var(--ring));
+  --rdp-day-width: 2.5rem;
+  --rdp-day-height: 2.5rem;
+  --rdp-day_button-width: 2.25rem;
+  --rdp-day_button-height: 2.25rem;
+  --rdp-font-family: inherit;
+  margin: 0;
+}
+.rdp-root .rdp-day_button {
+  font-size: 0.875rem;
+}
+.rdp-root .rdp-chevron {
+  fill: hsl(var(--muted-foreground));
+}

@@ -28,3 +28,19 @@ export function signToken(payload: TokenPayload): string {
 export function verifyToken(token: string): TokenPayload {
   return jwt.verify(token, JWT_SECRET) as TokenPayload;
 }
+
+// Platform owner (cross-hotel developer) sessions — no hotel/role, just the
+// user id plus a marker. Also 24h.
+export type PlatformTokenPayload = { userId: string; platformOwner: true };
+
+export function signPlatformToken(userId: string): string {
+  return jwt.sign({ userId, platformOwner: true }, JWT_SECRET, {
+    expiresIn: "24h",
+  });
+}
+
+export function verifyPlatformToken(token: string): PlatformTokenPayload {
+  const payload = jwt.verify(token, JWT_SECRET) as PlatformTokenPayload;
+  if (!payload.platformOwner) throw new Error("Not a platform token");
+  return payload;
+}

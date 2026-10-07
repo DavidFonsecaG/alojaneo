@@ -5,6 +5,7 @@
     "dev:api": "pnpm --filter @alojaneo/api dev",
     "dev:web": "pnpm --filter @alojaneo/web dev",
     "dev:booking": "pnpm --filter @alojaneo/booking dev",
+    "dev:admin": "pnpm --filter @alojaneo/admin dev",
     "test": "pnpm --filter @alojaneo/api test",
     "db:migrate": "pnpm --filter @alojaneo/db migrate"
   },
