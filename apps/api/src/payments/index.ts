@@ -1,19 +1,32 @@
 import { MockPaymentAdapter } from "./mockAdapter.js";
+import { PayPhonePaymentAdapter } from "./payphoneAdapter.js";
 import type { PaymentAdapter } from "./types.js";
 
 export * from "./types.js";
 
 let adapter: PaymentAdapter | null = null;
 
-// Resolve the active gateway. PAYMENT_PROVIDER selects it; today only "mock"
-// exists — real adapters (payphone, placetopay, …) register here later.
+// Resolve the active gateway from PAYMENT_PROVIDER. "payphone" needs
+// PAYPHONE_TOKEN + PAYPHONE_STORE_ID; if those are missing it falls back to the
+// mock with a loud warning so dev keeps working and misconfiguration is obvious.
 export function getPaymentAdapter(): PaymentAdapter {
   if (adapter) return adapter;
   const provider = process.env.PAYMENT_PROVIDER ?? "mock";
-  switch (provider) {
-    case "mock":
-    default:
+
+  if (provider === "payphone") {
+    const token = process.env.PAYPHONE_TOKEN;
+    const storeId = process.env.PAYPHONE_STORE_ID;
+    if (token && storeId) {
+      adapter = new PayPhonePaymentAdapter(token, storeId);
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[payments] PAYMENT_PROVIDER=payphone but PAYPHONE_TOKEN/STORE_ID are unset — falling back to the mock gateway.",
+      );
       adapter = new MockPaymentAdapter();
+    }
+  } else {
+    adapter = new MockPaymentAdapter();
   }
   return adapter;
 }

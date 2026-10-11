@@ -176,6 +176,36 @@ describe("payments: deposits, ledger, refunds", () => {
     expect(JSON.parse(refund.body).status).toBe("refunded");
   });
 
+  it("returns a redirect for a gateway that needs one, then confirms it", async () => {
+    // The mock treats a "redirect" email as a hosted-checkout hop.
+    const res = await book(`redirect-${Date.now()}@example.com`);
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.payment.status).toBe("pending");
+    expect(body.redirectUrl).toContain("clientTxId=");
+    const clientTxId = body.payment.transactionId as string;
+
+    const confirm = await app.inject({
+      method: "POST",
+      url: `/public/${hotelSlug}/reservations/${body.reservationId}/confirm-payment`,
+      payload: { clientTxId },
+    });
+    expect(confirm.statusCode).toBe(200);
+    expect(JSON.parse(confirm.body).status).toBe("completed");
+
+    // The ledger now shows it completed.
+    const rows = JSON.parse(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/payments?reservationId=${body.reservationId}`,
+          headers: auth(),
+        })
+      ).body,
+    );
+    expect(rows[0].status).toBe("completed");
+  });
+
   it("charges nothing when the deposit policy is none", async () => {
     await app.inject({
       method: "PATCH",

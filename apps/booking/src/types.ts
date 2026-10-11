@@ -59,11 +59,19 @@ export interface BookingRequest {
 }
 
 export interface BookingPayment {
-  status: "none" | "completed" | "failed";
+  status: "none" | "pending" | "completed" | "failed";
   amountCents: number; // charged up front now
   balanceDueCents: number; // remaining, due at the property
   method: string | null; // gateway name, e.g. "mock"
   transactionId: string | null;
+}
+
+// Returned by confirm-payment after the guest comes back from the gateway.
+export interface PaymentConfirmResult {
+  status: "completed";
+  bookingRef: string;
+  paidCents?: number;
+  balanceCents?: number;
 }
 
 // POST /public/:hotelSlug/bookings response
@@ -77,6 +85,8 @@ export interface BookingConfirmation {
   totalAmountCents: number;
   currency: string;
   payment: BookingPayment;
+  // Present when the gateway needs the guest to pay on a hosted page.
+  redirectUrl?: string | null;
   rooms: {
     id: string;
     roomId: string;

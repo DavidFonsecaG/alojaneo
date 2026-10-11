@@ -2,7 +2,28 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { sqlUnscoped, withTenant } from "../db.js";
 import { computeDepositCents, getPaymentAdapter } from "../payments/index.js";
-import { getMailer } from "../mail/index.js";
+import { getMailer, type BookingConfirmationData } from "../mail/index.js";
+
+// Where the booking engine lives — the gateway returns the guest here after
+// paying, carrying our pay_return=<reservationId> plus the gateway's ids.
+const bookingBaseUrl = () =>
+  process.env.BOOKING_PUBLIC_URL ?? "http://localhost:5174";
+
+const nightsBetween = (from: string, to: string) =>
+  Math.max(
+    1,
+    Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000),
+  );
+
+// Best-effort confirmation email — a mail hiccup never affects the booking.
+function sendConfirmationEmail(to: string, data: BookingConfirmationData): void {
+  void getMailer()
+    .sendBookingConfirmation(to, data)
+    .catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error("[mail] booking confirmation failed:", (err as Error).message);
+    });
+}
 
 const availabilityQuerySchema = z.object({
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "checkIn must be YYYY-MM-DD"),
@@ -347,9 +368,11 @@ export async function publicBookingRoutes(app: FastifyInstance) {
 
     // ── Deposit / payment ──────────────────────────────────────────────
     // The reservation exists; now collect the up-front deposit (if the hotel
-    // requires one) through the configured gateway. The charge is an external
-    // call, so it runs after the create transaction has committed.
+    // requires one) through the configured gateway. For a real gateway this
+    // starts a redirect flow (status "pending") finished by confirm-payment;
+    // the mock settles instantly ("completed").
     const totalCents = result.totalAmountCents as number;
+    const currency = result.currency ?? hotel.currency ?? "USD";
     const depositCents = computeDepositCents(
       hotel.deposit_policy_type,
       hotel.deposit_percentage,
@@ -357,7 +380,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
     );
 
     let payment: {
-      status: "none" | "completed" | "failed";
+      status: "none" | "pending" | "completed" | "failed";
       amountCents: number;
       balanceDueCents: number;
       method: string | null;
@@ -369,70 +392,159 @@ export async function publicBookingRoutes(app: FastifyInstance) {
       method: null,
       transactionId: null,
     };
+    let redirectUrl: string | null = null;
 
     if (depositCents > 0) {
       const adapter = getPaymentAdapter();
-      const charge = await adapter.charge({
+      const returnUrl = `${bookingBaseUrl()}/${hotelSlug}?pay_return=${result.reservationId}`;
+      const intent = await adapter.createIntent({
+        reservationId: result.reservationId,
         amountCents: depositCents,
-        currency: result.currency ?? hotel.currency ?? "USD",
+        currency,
         reference: result.bookingRef,
         description: `Booking ${result.bookingRef} — ${hotel.name}`,
         customerEmail: result.guest.email ?? undefined,
+        returnUrl,
       });
 
-      // Record the attempt (completed or failed) for the audit trail.
+      // Record the attempt. reference holds the clientTxId until confirmed.
       await withTenant(hotelId, (tx) =>
         tx`
           insert into payments (hotel_id, reservation_id, amount_cents, currency, method, status, reference)
-          values (${hotelId}, ${result.reservationId}, ${depositCents}, ${result.currency ?? "USD"}, ${adapter.name}, ${charge.status}, ${charge.transactionId})
+          values (${hotelId}, ${result.reservationId}, ${depositCents}, ${currency}, ${adapter.name}, ${intent.status}, ${intent.clientTxId})
         `,
       );
 
-      if (charge.status === "failed") {
+      if (intent.status === "failed") {
         // A declined deposit shouldn't hold inventory — release the rooms.
         await withTenant(hotelId, (tx) =>
           tx`update reservation_rooms set status = 'cancelled' where reservation_id = ${result.reservationId}`,
         );
         return reply.code(402).send({
-          error: charge.error ?? "Payment was declined.",
+          error: intent.error ?? "Payment was declined.",
           bookingRef: result.bookingRef,
         });
       }
 
       payment = {
-        status: "completed",
+        status: intent.status, // "pending" or "completed"
         amountCents: depositCents,
         balanceDueCents: totalCents - depositCents,
         method: adapter.name,
-        transactionId: charge.transactionId,
+        transactionId: intent.clientTxId,
       };
+
+      if (intent.status === "pending") {
+        // Guest must pay at the gateway; the confirmation email waits until
+        // confirm-payment reports success.
+        redirectUrl = intent.redirectUrl;
+        return reply.code(201).send({ ...result, payment, redirectUrl });
+      }
     }
 
-    // Email the guest a confirmation — best-effort, never fail the booking on
-    // a mail hiccup.
     if (result.guest.email) {
-      void getMailer()
-        .sendBookingConfirmation(result.guest.email, {
-          bookingRef: result.bookingRef,
-          hotelName: result.hotelName,
-          guestName: `${result.guest.firstName} ${result.guest.lastName}`,
+      sendConfirmationEmail(result.guest.email, {
+        bookingRef: result.bookingRef,
+        hotelName: result.hotelName,
+        guestName: `${result.guest.firstName} ${result.guest.lastName}`,
+        checkIn,
+        checkOut,
+        nights: stayNights,
+        totalCents,
+        paidCents: payment.amountCents,
+        balanceCents: payment.balanceDueCents,
+        currency,
+      });
+    }
+
+    return reply.code(201).send({ ...result, payment, redirectUrl });
+  });
+
+  // POST /public/:hotelSlug/reservations/:reservationId/confirm-payment
+  // Called when the guest returns from the gateway's hosted checkout. Confirms
+  // the pending deposit, finalises (or cancels) the booking, and emails the
+  // guest on success. Idempotent for an already-confirmed payment.
+  app.post<{ Params: { hotelSlug: string; reservationId: string } }>(
+    "/public/:hotelSlug/reservations/:reservationId/confirm-payment",
+    async (req, reply) => {
+      const { hotelSlug, reservationId } = req.params;
+      const body = z
+        .object({ clientTxId: z.string().min(1), providerTxId: z.string().optional() })
+        .parse(req.body);
+
+      const [hotel] = await sqlUnscoped`
+        select id, name, currency from hotels where slug = ${hotelSlug}
+      `;
+      if (!hotel) return reply.code(404).send({ error: "Hotel not found" });
+
+      const [pay] = await withTenant(hotel.id, (tx) =>
+        tx`
+          select
+            p.id, p.amount_cents, p.currency, p.status,
+            r.booking_ref, r.total_amount_cents,
+            g.first_name, g.last_name, g.email,
+            (select min(check_in) from reservation_rooms where reservation_id = r.id) as check_in,
+            (select max(check_out) from reservation_rooms where reservation_id = r.id) as check_out
+          from payments p
+          join reservations r on r.id = p.reservation_id
+          join guests g on g.id = r.guest_id
+          where p.reservation_id = ${reservationId} and p.reference = ${body.clientTxId}
+        `,
+      );
+      if (!pay) return reply.code(404).send({ error: "Payment not found" });
+      if (pay.status === "completed") {
+        return reply.send({ status: "completed", bookingRef: pay.booking_ref });
+      }
+      if (pay.status !== "pending") {
+        return reply.code(409).send({ error: `Payment is ${pay.status}` });
+      }
+
+      const adapter = getPaymentAdapter();
+      const confirmed = await adapter.confirm({
+        clientTxId: body.clientTxId,
+        providerTxId: body.providerTxId,
+        amountCents: pay.amount_cents,
+        currency: pay.currency,
+      });
+
+      await withTenant(hotel.id, (tx) =>
+        tx`update payments set status = ${confirmed.status}, reference = ${confirmed.transactionId} where id = ${pay.id}`,
+      );
+
+      if (confirmed.status !== "completed") {
+        await withTenant(hotel.id, (tx) =>
+          tx`update reservation_rooms set status = 'cancelled' where reservation_id = ${reservationId}`,
+        );
+        return reply.code(402).send({
+          error: confirmed.error ?? "Payment was not completed.",
+          bookingRef: pay.booking_ref,
+        });
+      }
+
+      const total = pay.total_amount_cents as number;
+      const checkIn = String(pay.check_in).slice(0, 10);
+      const checkOut = String(pay.check_out).slice(0, 10);
+      if (pay.email) {
+        sendConfirmationEmail(pay.email, {
+          bookingRef: pay.booking_ref,
+          hotelName: hotel.name,
+          guestName: `${pay.first_name} ${pay.last_name}`,
           checkIn,
           checkOut,
-          nights: stayNights,
-          totalCents,
-          paidCents: payment.amountCents,
-          balanceCents: payment.balanceDueCents,
-          currency: result.currency ?? hotel.currency ?? "USD",
-        })
-        .catch((err) => {
-          // eslint-disable-next-line no-console
-          console.error(
-            "[mail] booking confirmation failed:",
-            (err as Error).message,
-          );
+          nights: nightsBetween(checkIn, checkOut),
+          totalCents: total,
+          paidCents: pay.amount_cents,
+          balanceCents: total - pay.amount_cents,
+          currency: pay.currency,
         });
-    }
+      }
 
-    return reply.code(201).send({ ...result, payment });
-  });
+      return reply.send({
+        status: "completed",
+        bookingRef: pay.booking_ref,
+        paidCents: pay.amount_cents,
+        balanceCents: total - pay.amount_cents,
+      });
+    },
+  );
 }

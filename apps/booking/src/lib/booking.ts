@@ -5,6 +5,7 @@ import type {
   BookingConfirmation,
   BookingRequest,
   HotelInfo,
+  PaymentConfirmResult,
   SearchParams,
 } from "../types";
 
@@ -61,4 +62,17 @@ export function useCreateBooking(hotelSlug: string | undefined) {
     mutationFn: (body: BookingRequest) =>
       api.post<BookingConfirmation>(`/public/${hotelSlug}/bookings`, body),
   });
+}
+
+// POST /public/:hotelSlug/reservations/:id/confirm-payment — finalise a
+// gateway payment when the guest returns from the hosted checkout. A plain
+// request (not a hook) so the caller can drive it from a one-shot effect.
+export function confirmPaymentRequest(
+  hotelSlug: string | undefined,
+  args: { reservationId: string; clientTxId: string; providerTxId?: string },
+) {
+  return api.post<PaymentConfirmResult>(
+    `/public/${hotelSlug}/reservations/${args.reservationId}/confirm-payment`,
+    { clientTxId: args.clientTxId, providerTxId: args.providerTxId },
+  );
 }

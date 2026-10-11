@@ -14,6 +14,7 @@ import { DateRangePicker } from "../components/DateRangePicker";
 import { amenityLabel } from "../lib/amenities";
 import { ApiError } from "../lib/api";
 import {
+  confirmPaymentRequest,
   depositCents,
   useAvailability,
   useCreateBooking,
@@ -107,6 +108,44 @@ export function BookingPage() {
     null,
   );
 
+  // Return hop from a gateway's hosted checkout (?pay_return=<reservationId>):
+  // confirm the payment and show the outcome.
+  const payReturn = searchParams.get("pay_return");
+  const [returnState, setReturnState] = useState<{
+    status: "confirming" | "done" | "failed";
+    bookingRef?: string;
+    error?: string;
+  }>({ status: "confirming" });
+  useEffect(() => {
+    if (!payReturn) return;
+    let alive = true;
+    confirmPaymentRequest(hotelSlug, {
+      reservationId: payReturn,
+      clientTxId:
+        searchParams.get("clientTxId") ??
+        searchParams.get("clientTransactionId") ??
+        "",
+      providerTxId: searchParams.get("id") ?? undefined,
+    })
+      .then((r) => {
+        if (alive) setReturnState({ status: "done", bookingRef: r.bookingRef });
+      })
+      .catch((e) => {
+        if (alive)
+          setReturnState({
+            status: "failed",
+            error:
+              e instanceof ApiError
+                ? e.message
+                : "Payment could not be confirmed.",
+          });
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payReturn, hotelSlug]);
+
   const availability = useAvailability(hotelSlug, submitted);
   const hotel = useHotel(hotelSlug);
 
@@ -168,6 +207,24 @@ export function BookingPage() {
             again.
           </p>
         </Card>
+      </Shell>
+    );
+  }
+
+  if (payReturn) {
+    return (
+      <Shell
+        hotelName={hotel.data?.name}
+        bannerUrl={hotel.data?.bannerUrl ?? null}
+        bannerPosition={hotel.data?.bannerPosition ?? 50}
+        embed={embed}
+      >
+        <PaymentReturnView
+          status={returnState.status}
+          bookingRef={returnState.bookingRef}
+          error={returnState.error}
+          slug={hotelSlug}
+        />
       </Shell>
     );
   }
@@ -268,7 +325,12 @@ export function BookingPage() {
                 payNow={payNow}
                 currency={currency}
                 onBack={() => setStep("browse")}
-                onConfirmed={setConfirmation}
+                onConfirmed={(c) => {
+                  // A gateway that needs a hosted-checkout hop sends us a URL;
+                  // otherwise show the confirmation inline.
+                  if (c.redirectUrl) window.location.href = c.redirectUrl;
+                  else setConfirmation(c);
+                }}
               />
             )}
           </aside>
@@ -892,6 +954,64 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between gap-3">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-right font-medium">{value}</dd>
+    </div>
+  );
+}
+
+function PaymentReturnView({
+  status,
+  bookingRef,
+  error,
+  slug,
+}: {
+  status: "confirming" | "done" | "failed";
+  bookingRef?: string;
+  error?: string;
+  slug: string | undefined;
+}) {
+  const home = () => {
+    window.location.href = `/${slug ?? ""}`;
+  };
+  return (
+    <div className="mx-auto max-w-md">
+      <Card className="p-8 text-center">
+        {status === "confirming" ? (
+          <>
+            <Spinner className="mx-auto h-6 w-6" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              Confirming your payment…
+            </p>
+          </>
+        ) : status === "done" ? (
+          <>
+            <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <CheckCircle2 className="h-7 w-7" />
+            </span>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight">
+              Payment confirmed
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your booking {bookingRef} is all set — a confirmation is on its
+              way.
+            </p>
+            <Button type="button" variant="outline" className="mt-6" onClick={home}>
+              Book another stay
+            </Button>
+          </>
+        ) : (
+          <>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Payment not completed
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {error ?? "The payment didn't go through."}
+            </p>
+            <Button type="button" variant="outline" className="mt-6" onClick={home}>
+              Try again
+            </Button>
+          </>
+        )}
+      </Card>
     </div>
   );
 }
