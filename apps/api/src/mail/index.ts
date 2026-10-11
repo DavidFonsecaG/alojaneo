@@ -1,18 +1,34 @@
 // Pluggable transactional mailer. Uses Resend when RESEND_API_KEY is set,
-// otherwise a dev mailer that logs the message to the server console — so the
-// login-code flow works locally with no provider, and a real provider drops in
-// just by setting the env var.
+// otherwise a dev mailer that logs to the server console — so login codes and
+// booking confirmations work locally with no provider, and a real provider
+// drops in just by setting the env var.
+import {
+  bookingConfirmationEmail,
+  loginCodeEmail,
+  type BookingConfirmationData,
+} from "./templates.js";
+
+export type { BookingConfirmationData };
+
+interface EmailMessage {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
 
 export interface Mailer {
   readonly name: string;
   sendLoginCode(to: string, code: string): Promise<void>;
+  sendBookingConfirmation(
+    to: string,
+    data: BookingConfirmationData,
+  ): Promise<void>;
 }
 
-const MINUTES = 10;
-
-// The last code the dev mailer "sent", by email — for local tooling and the
-// integration tests (which run with no real provider). Never populated by the
-// real provider.
+// The last login code the dev mailer "sent", by email — for local tooling and
+// the integration tests (which run with no real provider). Never populated by
+// the real provider.
 const lastDevCodes = new Map<string, string>();
 export function getLastDevCode(email: string): string | undefined {
   return lastDevCodes.get(email.toLowerCase());
@@ -23,8 +39,15 @@ class ConsoleMailer implements Mailer {
   async sendLoginCode(to: string, code: string): Promise<void> {
     lastDevCodes.set(to.toLowerCase(), code);
     // eslint-disable-next-line no-console
+    console.log(`\n[mail:dev] Login code for ${to}: ${code} (expires in 10 min)\n`);
+  }
+  async sendBookingConfirmation(
+    to: string,
+    data: BookingConfirmationData,
+  ): Promise<void> {
+    // eslint-disable-next-line no-console
     console.log(
-      `\n[mail:dev] Login code for ${to}: ${code} (expires in ${MINUTES} min)\n`,
+      `\n[mail:dev] Booking confirmation ${data.bookingRef} → ${to} (${data.hotelName})\n`,
     );
   }
 }
@@ -36,24 +59,29 @@ class ResendMailer implements Mailer {
     private from: string,
   ) {}
 
-  async sendLoginCode(to: string, code: string): Promise<void> {
+  private async send(msg: EmailMessage): Promise<void> {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         authorization: `Bearer ${this.apiKey}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        from: this.from,
-        to,
-        subject: `Your Alojaneo login code: ${code}`,
-        text: `Your Alojaneo login code is ${code}. It expires in ${MINUTES} minutes. If you didn't try to sign in, you can ignore this email.`,
-      }),
+      body: JSON.stringify({ from: this.from, ...msg }),
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throw new Error(`Resend send failed (${res.status}): ${body}`);
     }
+  }
+
+  sendLoginCode(to: string, code: string): Promise<void> {
+    return this.send({ to, ...loginCodeEmail(code) });
+  }
+  sendBookingConfirmation(
+    to: string,
+    data: BookingConfirmationData,
+  ): Promise<void> {
+    return this.send({ to, ...bookingConfirmationEmail(data) });
   }
 }
 

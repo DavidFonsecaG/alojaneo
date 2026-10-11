@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { sqlUnscoped, withTenant } from "../db.js";
 import { computeDepositCents, getPaymentAdapter } from "../payments/index.js";
+import { getMailer } from "../mail/index.js";
 
 const availabilityQuerySchema = z.object({
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "checkIn must be YYYY-MM-DD"),
@@ -405,6 +406,31 @@ export async function publicBookingRoutes(app: FastifyInstance) {
         method: adapter.name,
         transactionId: charge.transactionId,
       };
+    }
+
+    // Email the guest a confirmation — best-effort, never fail the booking on
+    // a mail hiccup.
+    if (result.guest.email) {
+      void getMailer()
+        .sendBookingConfirmation(result.guest.email, {
+          bookingRef: result.bookingRef,
+          hotelName: result.hotelName,
+          guestName: `${result.guest.firstName} ${result.guest.lastName}`,
+          checkIn,
+          checkOut,
+          nights: stayNights,
+          totalCents,
+          paidCents: payment.amountCents,
+          balanceCents: payment.balanceDueCents,
+          currency: result.currency ?? hotel.currency ?? "USD",
+        })
+        .catch((err) => {
+          // eslint-disable-next-line no-console
+          console.error(
+            "[mail] booking confirmation failed:",
+            (err as Error).message,
+          );
+        });
     }
 
     return reply.code(201).send({ ...result, payment });

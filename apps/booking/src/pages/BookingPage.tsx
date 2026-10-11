@@ -833,7 +833,7 @@ function ConfirmationView({
           Booking confirmed
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Your stay at {c.hotelName} is reserved under {c.guest.email}.
+          A confirmation has been sent to {c.guest.email}.
         </p>
 
         <dl className="mt-6 space-y-2.5 rounded-2xl bg-muted/50 p-4 text-left text-sm">
