@@ -10,9 +10,18 @@ export interface Mailer {
 
 const MINUTES = 10;
 
+// The last code the dev mailer "sent", by email — for local tooling and the
+// integration tests (which run with no real provider). Never populated by the
+// real provider.
+const lastDevCodes = new Map<string, string>();
+export function getLastDevCode(email: string): string | undefined {
+  return lastDevCodes.get(email.toLowerCase());
+}
+
 class ConsoleMailer implements Mailer {
   readonly name = "console";
   async sendLoginCode(to: string, code: string): Promise<void> {
+    lastDevCodes.set(to.toLowerCase(), code);
     // eslint-disable-next-line no-console
     console.log(
       `\n[mail:dev] Login code for ${to}: ${code} (expires in ${MINUTES} min)\n`,

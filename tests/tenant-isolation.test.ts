@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildApp } from "../apps/api/src/index.js";
+import { getLastDevCode } from "../apps/api/src/mail/index.js";
 import type { FastifyInstance } from "fastify";
 
 describe("tenant isolation through the real API + connection pool", () => {
@@ -115,18 +116,30 @@ describe("tenant isolation through the real API + connection pool", () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it("lets a user log in after signup and access their hotel's data", async () => {
+  it("logs in via the email-code flow and accesses the hotel's data", async () => {
     const ts = Date.now();
     const email = `login-${ts}@test.com`;
     await signup("Login Test Hotel", `login-test-${ts}`, email);
 
+    // Step 1: password → emailed code challenge (no token yet).
     const loginRes = await app.inject({
       method: "POST",
       url: "/auth/login",
       payload: { email, password: "password123" },
     });
     expect(loginRes.statusCode).toBe(200);
-    const body = JSON.parse(loginRes.body);
+    expect(JSON.parse(loginRes.body).challenge).toBe("code");
+
+    // Step 2: verify the code (read from the dev mailer) → token.
+    const code = getLastDevCode(email);
+    expect(code).toBeDefined();
+    const verifyRes = await app.inject({
+      method: "POST",
+      url: "/auth/verify-code",
+      payload: { email, code },
+    });
+    expect(verifyRes.statusCode).toBe(200);
+    const body = JSON.parse(verifyRes.body);
     expect(body.token).toBeDefined();
     expect(body.permissions).toBeDefined();
 

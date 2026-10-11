@@ -117,7 +117,9 @@ describe("public booking engine", () => {
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.body);
     expect(body.reservationId).toBeDefined();
-    expect(body.totalAmountCents).toBe(12000);
+    // 2027-01-10 → 2027-01-15 is 5 nights; rate_cents is the whole-stay amount
+    // (12000/night × 5), matching how the staff app stores it.
+    expect(body.totalAmountCents).toBe(60000);
     expect(body.rooms).toHaveLength(1);
     expect(body.rooms[0].status).toBe("confirmed");
   });
