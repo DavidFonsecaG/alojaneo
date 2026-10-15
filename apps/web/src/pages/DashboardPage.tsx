@@ -7,6 +7,9 @@ import {
   XCircle,
   UserX,
   CheckCircle2,
+  Gauge,
+  BedDouble,
+  DoorOpen,
 } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { StatusBadge } from "../components/StatusBadge";
@@ -14,7 +17,7 @@ import { Button } from "../components/ui/button";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
 import { useDashboard, useOccupancy } from "../lib/dashboard";
 import { useUpdateRoomStatus } from "../lib/reservations";
-import { parseApiDate } from "../lib/format";
+import { parseApiDate, toApiDate } from "../lib/format";
 import { cn } from "../lib/utils";
 import type {
   DashboardArrival,
@@ -59,6 +62,14 @@ function Panel({
 
 export function DashboardPage() {
   const dash = useDashboard();
+  const rs = dash.data?.roomStatus;
+  const occupied = rs?.occupied ?? 0;
+  const available = rs?.available ?? 0;
+  const total = rs?.total ?? 0;
+  const pct = total ? Math.round((100 * occupied) / total) : 0;
+  const arrivals = dash.data?.arrivingToday.length ?? 0;
+  const loading = dash.isLoading;
+  const num = (n: number) => (loading ? "–" : String(n));
 
   return (
     <>
@@ -66,13 +77,73 @@ export function DashboardPage() {
         title="Dashboard"
         description="Welcome back — here's what's happening today."
       />
-      <div className="grid animate-fade-in gap-3 lg:grid-cols-3">
+
+      {/* KPI strip — today at a glance */}
+      <div className="grid animate-fade-in gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi
+          label="Occupancy"
+          value={loading ? "–" : `${pct}%`}
+          icon={<Gauge className="h-5 w-5" />}
+          tint="bg-primary/10 text-primary"
+        />
+        <Kpi
+          label="In-house"
+          value={num(occupied)}
+          icon={<BedDouble className="h-5 w-5" />}
+          tint="bg-sky-100 text-sky-600"
+        />
+        <Kpi
+          label="Arrivals today"
+          value={num(arrivals)}
+          icon={<LogIn className="h-5 w-5" />}
+          tint="bg-violet-100 text-violet-600"
+        />
+        <Kpi
+          label="Available"
+          value={num(available)}
+          icon={<DoorOpen className="h-5 w-5" />}
+          tint="bg-emerald-100 text-emerald-600"
+        />
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
         <OccupancyCard />
-        <RoomStatusCard data={dash.data} loading={dash.isLoading} />
-        <ArrivingTodayCard data={dash.data} loading={dash.isLoading} />
         <RecentActivityCard data={dash.data} loading={dash.isLoading} />
+        <ArrivingTodayCard data={dash.data} loading={dash.isLoading} />
       </div>
     </>
+  );
+}
+
+// ── KPI stat card ────────────────────────────────────────────────────
+function Kpi({
+  label,
+  value,
+  icon,
+  tint,
+}: {
+  label: string;
+  value: string;
+  icon: ReactNode;
+  tint: string;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-3xl bg-card p-5 shadow-card">
+      <div>
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </div>
+        <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+      </div>
+      <span
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+          tint,
+        )}
+      >
+        {icon}
+      </span>
+    </div>
   );
 }
 
@@ -86,6 +157,7 @@ function OccupancyCard() {
   // Only the single-bar "day" view needs a width cap; week/month bars fill
   // their columns so they read as a proper chart rather than thin slivers.
   const singleBar = series.length <= 1;
+  const todayStr = toApiDate(new Date());
 
   return (
     <Panel className="lg:col-span-2">
@@ -124,119 +196,49 @@ function OccupancyCard() {
             const pct = total
               ? Math.min(100, Math.round((100 * p.occupied) / total))
               : 0;
+            // Give any non-zero day a visible minimum so a low-occupancy
+            // bar still reads as a bar rather than an empty column.
+            const barHeight = p.occupied > 0 ? Math.max(pct, 6) : 0;
             const d = parseApiDate(p.date);
+            const isToday = p.date === todayStr;
             const label = isMonth ? String(d.getDate()) : WEEKDAY[d.getDay()];
             return (
               <div
                 key={p.date}
-                className="flex flex-1 flex-col items-center gap-2"
+                className="flex flex-1 flex-col items-center gap-1.5"
               >
+                <span className="h-4 text-[11px] font-medium tabular-nums text-muted-foreground">
+                  {p.occupied > 0 ? p.occupied : ""}
+                </span>
                 <div
                   className={cn(
-                    "relative flex w-full flex-1 items-end overflow-hidden rounded-lg bg-primary/10",
+                    "relative flex w-full flex-1 items-end overflow-hidden rounded-lg bg-muted",
                     singleBar && "max-w-[140px]",
                   )}
                   title={`${p.occupied}/${total} rooms · ${pct}%`}
                 >
                   <div
-                    className="w-full rounded-lg bg-primary transition-[height] duration-300"
-                    style={{ height: `${pct}%` }}
+                    className={cn(
+                      "w-full rounded-lg transition-[height] duration-300",
+                      isToday ? "bg-primary" : "bg-primary/70",
+                    )}
+                    style={{ height: `${barHeight}%` }}
                   />
                 </div>
-                <span className="h-3 text-[11px] text-muted-foreground">
-                  {isMonth ? (d.getDate() % 5 === 0 ? label : "") : label}
+                <span
+                  className={cn(
+                    "h-3 text-[11px]",
+                    isToday
+                      ? "font-semibold text-foreground"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {isMonth ? (d.getDate() % 5 === 0 || isToday ? label : "") : label}
                 </span>
               </div>
             );
           })}
         </div>
-      )}
-    </Panel>
-  );
-}
-
-// ── Room status (donut) ──────────────────────────────────────────────
-function RoomStatusCard({
-  data,
-  loading,
-}: {
-  data?: DashboardData;
-  loading: boolean;
-}) {
-  const rs = data?.roomStatus;
-  const total = rs?.total ?? 0;
-  const occupied = rs?.occupied ?? 0;
-  const available = rs?.available ?? 0;
-  const pct = total ? Math.round((100 * occupied) / total) : 0;
-
-  const R = 50;
-  const C = 2 * Math.PI * R;
-  const occLen = (pct / 100) * C;
-
-  return (
-    <Panel>
-      <h2 className="text-lg font-semibold">Room Status</h2>
-      {loading ? (
-        <div className="flex h-56 items-center justify-center">
-          <CenteredSpinner />
-        </div>
-      ) : (
-        <>
-          <div className="relative mx-auto mt-4 flex h-52 w-52 items-center justify-center">
-            <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-              {/* Available track first (flat ends); the occupied arc is drawn
-                  on top with rounded caps so its ends sit over the seam. */}
-              {available > 0 && (
-                <circle
-                  cx="60"
-                  cy="60"
-                  r={R}
-                  fill="none"
-                  className="text-emerald-400"
-                  stroke="currentColor"
-                  strokeWidth="18"
-                  strokeDasharray={`${C - occLen} ${C}`}
-                  strokeDashoffset={-occLen}
-                />
-              )}
-              {occupied > 0 && (
-                <circle
-                  cx="60"
-                  cy="60"
-                  r={R}
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="18"
-                  strokeLinecap="round"
-                  strokeDasharray={`${occLen} ${C}`}
-                />
-              )}
-            </svg>
-            <div className="absolute flex flex-col items-center">
-              <span className="text-3xl font-bold">{pct}%</span>
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                Occupied
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-5 flex items-center justify-around text-sm">
-            <div className="flex flex-col items-center gap-1">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                Occupied
-              </span>
-              <span className="font-semibold">{occupied} Rooms</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Available
-              </span>
-              <span className="font-semibold">{available} Rooms</span>
-            </div>
-          </div>
-        </>
       )}
     </Panel>
   );
@@ -253,7 +255,7 @@ function ArrivingTodayCard({
   const rows = (data?.arrivingToday ?? []).slice(0, 6);
 
   return (
-    <Panel className="lg:col-span-2">
+    <Panel className="lg:col-span-3">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Arriving Today</h2>
         <Link
