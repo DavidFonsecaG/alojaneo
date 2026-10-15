@@ -265,7 +265,7 @@ export function RoomsPage() {
 
       {/* Tiles */}
       {rooms.isLoading ? (
-        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-sm">
+        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-card">
           <CenteredSpinner label="Loading rooms…" />
         </div>
       ) : rooms.isError ? (
@@ -536,7 +536,7 @@ export function RoomsSetup() {
           body="Add your first room with the button above."
         />
       ) : (
-        <div className="overflow-hidden rounded-3xl bg-card shadow-sm">
+        <div className="overflow-hidden rounded-3xl bg-card shadow-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -644,7 +644,7 @@ function StatCard({
   valueClass?: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-3xl bg-card p-4 shadow-sm">
+    <div className="flex items-center justify-between rounded-3xl bg-card p-4 shadow-card">
       <div>
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}
@@ -687,7 +687,7 @@ function RoomTile({
       type="button"
       onClick={onOpen}
       className={cn(
-        "group flex flex-col rounded-2xl border border-transparent p-3 text-left shadow-sm ring-1 ring-border transition-shadow hover:shadow-md",
+        "group flex flex-col rounded-2xl border border-transparent p-3 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover",
         meta.tile,
       )}
     >

@@ -72,7 +72,7 @@ function StatusPill({ status }: { status: PaymentStatus }) {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="rounded-3xl bg-card p-5 shadow-sm">
+    <div className="rounded-3xl bg-card p-5 shadow-card">
       <div className="text-xs uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
@@ -139,7 +139,7 @@ export function PaymentsPage() {
         <Stat label="Payments" value={String(rows.length)} />
       </div>
 
-      <div className="rounded-3xl bg-card p-5 shadow-sm">
+      <div className="rounded-3xl bg-card p-5 shadow-card">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             placeholder="Search guest or booking ref…"

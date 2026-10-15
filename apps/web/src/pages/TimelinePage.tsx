@@ -247,11 +247,11 @@ export function TimelinePage() {
       </div>
 
       {loading ? (
-        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-sm">
+        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-card">
           <CenteredSpinner label="Loading calendar…" />
         </div>
       ) : noRooms ? (
-        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-sm">
+        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-card">
           <div className="p-8 text-center text-sm text-muted-foreground">
             No rooms yet. Add rooms on the{" "}
             <button
@@ -265,7 +265,7 @@ export function TimelinePage() {
         </div>
       ) : (
         <>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-card shadow-sm">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-card shadow-card">
             {/* Controls — the card header under the title */}
             <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
               {/* Search rooms */}

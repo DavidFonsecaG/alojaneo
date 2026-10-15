@@ -46,7 +46,12 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <div className={cn("rounded-3xl bg-card p-5 shadow-sm", className)}>
+    <div
+      className={cn(
+        "rounded-3xl bg-card p-5 shadow-card",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -61,7 +66,7 @@ export function DashboardPage() {
         title="Dashboard"
         description="Welcome back — here's what's happening today."
       />
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid animate-fade-in gap-3 lg:grid-cols-3">
         <OccupancyCard />
         <RoomStatusCard data={dash.data} loading={dash.isLoading} />
         <ArrivingTodayCard data={dash.data} loading={dash.isLoading} />

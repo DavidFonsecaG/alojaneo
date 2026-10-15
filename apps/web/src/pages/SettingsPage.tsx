@@ -72,7 +72,7 @@ export function SettingsPage() {
           {tab === "users" && <UsersSettings />}
         </>
       ) : (
-        <p className="rounded-3xl bg-card p-6 text-sm text-muted-foreground shadow-sm">
+        <p className="rounded-3xl bg-card p-6 text-sm text-muted-foreground shadow-card">
           You need admin access to change property settings.
         </p>
       )}

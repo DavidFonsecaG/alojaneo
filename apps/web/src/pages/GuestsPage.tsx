@@ -93,7 +93,7 @@ export function GuestsPage() {
             }
           />
         ) : (
-          <div className="overflow-hidden rounded-3xl bg-card shadow-sm">
+          <div className="overflow-hidden rounded-3xl bg-card shadow-card">
             <Table>
               <TableHeader>
                 <TableRow>
