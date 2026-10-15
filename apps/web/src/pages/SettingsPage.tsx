@@ -38,7 +38,7 @@ export function SettingsPage() {
   const [tab, setTab] = useState<TabId>("booking");
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col gap-4">
       <PageHeader title="Settings" description="Property configuration" />
 
       {isAdmin ? (
@@ -66,10 +66,19 @@ export function SettingsPage() {
             </nav>
           </div>
 
-          {tab === "booking" && <BrandingSettings />}
-          {tab === "deposits" && <DepositSettings />}
-          {tab === "rooms" && <RoomsSetup />}
-          {tab === "users" && <UsersSettings />}
+          {/* The Rooms tab manages its own full-height scroll (sticky header,
+              scrolling rows); the other tabs are forms that scroll as a whole. */}
+          <div
+            className={cn(
+              "min-h-0 flex-1",
+              tab === "rooms" ? "flex flex-col" : "overflow-y-auto",
+            )}
+          >
+            {tab === "booking" && <BrandingSettings />}
+            {tab === "deposits" && <DepositSettings />}
+            {tab === "rooms" && <RoomsSetup />}
+            {tab === "users" && <UsersSettings />}
+          </div>
         </>
       ) : (
         <p className="rounded-3xl bg-card p-6 text-sm text-muted-foreground shadow-card">

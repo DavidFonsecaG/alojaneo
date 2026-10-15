@@ -22,14 +22,6 @@ import { Dialog, ConfirmDialog } from "../components/ui/dialog";
 import { Field, Checkbox } from "../components/ui/field";
 import { ErrorBox, EmptyBox } from "../components/States";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../components/ui/table";
 import { AMENITIES } from "../lib/amenities";
 import {
   useRooms,
@@ -492,7 +484,7 @@ export function RoomsSetup() {
   const hasTypes = types.length > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">
@@ -520,7 +512,9 @@ export function RoomsSetup() {
       </div>
 
       {rooms.isLoading ? (
-        <CenteredSpinner label="Loading rooms…" />
+        <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-card">
+          <CenteredSpinner label="Loading rooms…" />
+        </div>
       ) : rooms.isError ? (
         <ErrorBox message={(rooms.error as Error).message} />
       ) : !hasTypes ? (
@@ -536,59 +530,58 @@ export function RoomsSetup() {
           body="Add your first room with the button above."
         />
       ) : (
-        <div className="overflow-hidden rounded-3xl bg-card shadow-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Room</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Floor</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Housekeeping</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(rooms.data ?? []).map((room) => (
-                <TableRow key={room.id}>
-                  <TableCell className="font-medium">
-                    {room.room_number}
-                  </TableCell>
-                  <TableCell>{room.room_type_name}</TableCell>
-                  <TableCell>{room.floor ?? "—"}</TableCell>
-                  <TableCell className="capitalize">
-                    {room.status.replace(/_/g, " ")}
-                  </TableCell>
-                  <TableCell className="capitalize text-muted-foreground">
-                    {room.housekeeping_status.replace(/_/g, " ")}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Edit room"
-                        onClick={() => {
-                          setEditing(room);
-                          setFormOpen(true);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Delete room"
-                        onClick={() => setDeleting(room)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-card shadow-card">
+          {/* Column header lives outside the scroll area (like the Calendar
+              card) so the scrollbar sits below it, not beside it. The
+              scrollbar gutter is reserved on the body and matched with the
+              header's right padding so the columns line up. */}
+          <div className="grid h-10 grid-cols-[5rem_minmax(8rem,1fr)_4rem_7rem_9rem_5.5rem] items-center gap-4 border-b border-border pl-4 pr-[22px] text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div>Room</div>
+            <div>Type</div>
+            <div>Floor</div>
+            <div>Status</div>
+            <div>Housekeeping</div>
+            <div className="text-right">Actions</div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+            {(rooms.data ?? []).map((room) => (
+              <div
+                key={room.id}
+                className="grid grid-cols-[5rem_minmax(8rem,1fr)_4rem_7rem_9rem_5.5rem] items-center gap-4 border-b border-border px-4 py-3 text-sm transition-colors last:border-b-0 hover:bg-muted/50"
+              >
+                <div className="font-medium">{room.room_number}</div>
+                <div className="truncate">{room.room_type_name}</div>
+                <div>{room.floor ?? "—"}</div>
+                <div className="capitalize">
+                  {room.status.replace(/_/g, " ")}
+                </div>
+                <div className="capitalize text-muted-foreground">
+                  {room.housekeeping_status.replace(/_/g, " ")}
+                </div>
+                <div className="flex justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Edit room"
+                    onClick={() => {
+                      setEditing(room);
+                      setFormOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Delete room"
+                    onClick={() => setDeleting(room)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
