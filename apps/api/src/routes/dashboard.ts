@@ -51,10 +51,27 @@ export async function dashboardRoutes(app: FastifyInstance) {
              from reservation_rooms rr
              where rr.status not in ('cancelled', 'no_show')
                and rr.check_in <= ${today} and rr.check_out > ${today}
-          ) as occupied_rooms
+          ) as occupied_rooms,
+          (select count(*)::int
+             from reservation_rooms rr
+             where rr.status not in ('cancelled', 'no_show')
+               and rr.check_out = ${today}
+          ) as departures_today
       `;
       const total = counts.total_rooms ?? 0;
       const occupied = counts.occupied_rooms ?? 0;
+
+      // Money actually collected today (completed payments), with the hotel's
+      // prevailing currency from its most recent payment.
+      const [revenue] = await tx`
+        select
+          coalesce(sum(amount_cents) filter (where status = 'completed'), 0)::int
+            as cents,
+          (select currency from payments order by created_at desc limit 1)
+            as currency
+        from payments
+        where created_at::date = ${today}
+      `;
 
       const arrivingToday = await tx`
         select
@@ -106,6 +123,11 @@ export async function dashboardRoutes(app: FastifyInstance) {
           total,
           occupied,
           available: Math.max(total - occupied, 0),
+        },
+        departuresToday: counts.departures_today ?? 0,
+        revenueToday: {
+          cents: revenue.cents ?? 0,
+          currency: revenue.currency ?? "USD",
         },
         arrivingToday,
         recentStatusEvents,

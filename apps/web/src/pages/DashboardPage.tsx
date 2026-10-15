@@ -10,6 +10,7 @@ import {
   Gauge,
   BedDouble,
   DoorOpen,
+  DollarSign,
 } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { StatusBadge } from "../components/StatusBadge";
@@ -17,7 +18,7 @@ import { Button } from "../components/ui/button";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
 import { useDashboard, useOccupancy } from "../lib/dashboard";
 import { useUpdateRoomStatus } from "../lib/reservations";
-import { parseApiDate, toApiDate } from "../lib/format";
+import { parseApiDate, toApiDate, formatMoney } from "../lib/format";
 import { cn } from "../lib/utils";
 import type {
   DashboardArrival,
@@ -68,6 +69,8 @@ export function DashboardPage() {
   const total = rs?.total ?? 0;
   const pct = total ? Math.round((100 * occupied) / total) : 0;
   const arrivals = dash.data?.arrivingToday.length ?? 0;
+  const departures = dash.data?.departuresToday ?? 0;
+  const revenue = dash.data?.revenueToday;
   const loading = dash.isLoading;
   const num = (n: number) => (loading ? "–" : String(n));
 
@@ -79,7 +82,7 @@ export function DashboardPage() {
       />
 
       {/* KPI strip — today at a glance */}
-      <div className="grid animate-fade-in gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid animate-fade-in gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         <Kpi
           label="Occupancy"
           value={loading ? "–" : `${pct}%`}
@@ -93,16 +96,32 @@ export function DashboardPage() {
           tint="bg-sky-100 text-sky-600"
         />
         <Kpi
+          label="Available"
+          value={num(available)}
+          icon={<DoorOpen className="h-5 w-5" />}
+          tint="bg-emerald-100 text-emerald-600"
+        />
+        <Kpi
           label="Arrivals today"
           value={num(arrivals)}
           icon={<LogIn className="h-5 w-5" />}
           tint="bg-violet-100 text-violet-600"
         />
         <Kpi
-          label="Available"
-          value={num(available)}
-          icon={<DoorOpen className="h-5 w-5" />}
-          tint="bg-emerald-100 text-emerald-600"
+          label="Departures today"
+          value={num(departures)}
+          icon={<LogOut className="h-5 w-5" />}
+          tint="bg-rose-100 text-rose-600"
+        />
+        <Kpi
+          label="Revenue today"
+          value={
+            loading || !revenue
+              ? "–"
+              : formatMoney(revenue.cents, revenue.currency)
+          }
+          icon={<DollarSign className="h-5 w-5" />}
+          tint="bg-amber-100 text-amber-600"
         />
       </div>
 

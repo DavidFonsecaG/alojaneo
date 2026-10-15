@@ -248,6 +248,8 @@ export interface DashboardBooking {
 
 export interface DashboardData {
   roomStatus: { total: number; occupied: number; available: number };
+  departuresToday: number;
+  revenueToday: { cents: number; currency: string };
   arrivingToday: DashboardArrival[];
   recentStatusEvents: DashboardStatusEvent[];
   recentBookings: DashboardBooking[];
