@@ -11,8 +11,8 @@ import {
   Settings,
   LogOut,
   ClipboardList,
-  ChevronsLeft,
-  ChevronsRight,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { cn } from "../lib/utils";
@@ -55,17 +55,13 @@ export function Layout() {
     <div className="flex h-screen bg-[#f4f4f4]">
       <aside
         className={cn(
-          "flex shrink-0 flex-col overflow-hidden rounded-3xl shadow-sm transition-[width] duration-200 ease-in-out",
-          collapsed ? "w-[76px]" : "w-52",
+          "flex shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-in-out",
+          collapsed ? "w-16" : "w-52",
         )}
       >
-        <div
-          className={cn(
-            "relative flex h-16 items-center px-4",
-            collapsed ? "justify-center" : "gap-2",
-          )}
-        >
-          <Link to="/" className="flex items-center gap-2 mt-3">
+        {/* Brand — the logo stays pinned left; the wordmark fades out. */}
+        <div className="flex h-16 items-center px-3">
+          <Link to="/" className="flex items-center gap-2.5 overflow-hidden">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white">
               <svg
                 viewBox="0 0 24 24"
@@ -80,40 +76,60 @@ export function Layout() {
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
               </svg>
             </span>
-            {!collapsed && (
-              <span className="text-lg font-semibold">Alojaneo</span>
-            )}
+            <span
+              className={cn(
+                "whitespace-nowrap text-lg font-semibold transition-opacity duration-200",
+                collapsed && "opacity-0",
+              )}
+            >
+              Alojaneo
+            </span>
           </Link>
+        </div>
+
+        {/* Collapse/expand toggle — pinned at the top so it's always visible,
+            left-aligned on the same column as the nav icons. */}
+        <div className="px-3 pb-1">
           <button
             onClick={toggleSidebar}
-            className={cn(
-              "absolute right-2 top-12 rounded-full p-1 text-muted-foreground transition-colors bg-card shadow hover:text-primary",
-              !collapsed && "ml-auto",
-            )}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={collapsed ? "Expand" : "Collapse"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="flex h-9 w-full items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
           >
             {collapsed ? (
-              <ChevronsRight className="h-3 w-3" />
+              <PanelLeftOpen className="h-4 w-4 shrink-0" />
             ) : (
-              <ChevronsLeft className="h-3 w-3" />
+              <PanelLeftClose className="h-4 w-4 shrink-0" />
             )}
+            <span
+              className={cn(
+                "transition-opacity duration-200",
+                collapsed && "opacity-0",
+              )}
+            >
+              Collapse
+            </span>
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1.5 overflow-y-auto p-3 pt-5">
+        <nav className="flex-1 space-y-1.5 overflow-y-auto p-3 pt-2">
           {NAV.filter(
             (item) => !item.adminOnly || user?.role === "admin",
           ).map((item) => {
             const Icon = item.icon;
-            // Same height in both states; when collapsed each item is a
-            // square that shows only its icon.
-            const shape = collapsed
-              ? "mx-auto h-10 w-10 justify-center"
-              : "h-11 gap-4 px-3";
-            const base = cn(
-              "flex items-center rounded-xl text-sm font-medium transition-colors",
-              shape,
+            // Icon stays pinned left (fixed px-3) in both states; only the
+            // label fades + the sidebar width animates, so nothing jumps.
+            const base =
+              "flex h-11 items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl px-3 text-sm font-medium transition-colors";
+            const label = (
+              <span
+                className={cn(
+                  "transition-opacity duration-200",
+                  collapsed && "opacity-0",
+                )}
+              >
+                {item.label}
+              </span>
             );
             if (!item.enabled) {
               return (
@@ -123,11 +139,7 @@ export function Layout() {
                   title={collapsed ? `${item.label} (coming soon)` : "Coming soon"}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span>{item.label}</span>
-                    </>
-                  )}
+                  {label}
                 </div>
               );
             }
@@ -146,20 +158,15 @@ export function Layout() {
                 }
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {label}
               </NavLink>
             );
           })}
         </nav>
 
-        <div
-          className={cn(
-            "border-t border-border p-3",
-            collapsed && "flex justify-center",
-          )}
-        >
+        <div className="space-y-1 p-3">
           {!collapsed && (
-            <div className="mb-2 px-2 text-xs text-muted-foreground">
+            <div className="mb-1 overflow-hidden whitespace-nowrap px-3 text-xs text-muted-foreground">
               Signed in as{" "}
               <span className="font-medium capitalize text-foreground">
                 {user?.role}
@@ -170,13 +177,17 @@ export function Layout() {
             onClick={logout}
             title="Log out"
             aria-label="Log out"
-            className={cn(
-              "flex items-center rounded-lg text-[15px] font-medium text-foreground transition-colors hover:bg-accent",
-              collapsed ? "h-11 w-11 justify-center" : "h-11 w-full gap-3 px-3",
-            )}
+            className="flex h-11 w-full items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <LogOut className="h-5 w-5 shrink-0" />
-            {!collapsed && "Log out"}
+            <span
+              className={cn(
+                "transition-opacity duration-200",
+                collapsed && "opacity-0",
+              )}
+            >
+              Log out
+            </span>
           </button>
         </div>
       </aside>
