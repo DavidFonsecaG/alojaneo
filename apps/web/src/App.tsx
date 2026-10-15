@@ -11,6 +11,7 @@ import { RoomsPage } from "./pages/RoomsPage";
 import { RatePlansPage } from "./pages/RatePlansPage";
 import { GuestsPage } from "./pages/GuestsPage";
 import { PaymentsPage } from "./pages/PaymentsPage";
+import { HousekeepingPage } from "./pages/HousekeepingPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 export function App() {
@@ -33,6 +34,7 @@ export function App() {
           <Route path="/rate-plans" element={<RatePlansPage />} />
           <Route path="/guests" element={<GuestsPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
+          <Route path="/housekeeping" element={<HousekeepingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>
