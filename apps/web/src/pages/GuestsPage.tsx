@@ -5,7 +5,6 @@ import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
 import { Dialog, ConfirmDialog } from "../components/ui/dialog";
 import { Field } from "../components/ui/field";
-import { ErrorBox, EmptyBox } from "../components/States";
 import { CenteredSpinner, Spinner } from "../components/ui/spinner";
 import {
   Table,
@@ -30,6 +29,10 @@ const DOC_TYPES = [
   { value: "passport", label: "Passport" },
 ];
 
+function initials(first: string, last: string) {
+  return ((first[0] ?? "") + (last[0] ?? "")).toUpperCase() || "–";
+}
+
 export function GuestsPage() {
   const guests = useGuests();
   const [query, setQuery] = useState("");
@@ -51,51 +54,67 @@ export function GuestsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Guests"
-        description="Guest directory"
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add guest
-          </Button>
-        }
-      />
+      <div className="flex h-full flex-col gap-3">
+        <PageHeader
+          title="Guests"
+          description="Guest directory"
+          actions={
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Add guest
+            </Button>
+          }
+        />
 
-      <div className="space-y-4">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-8"
-            placeholder="Search by name or email…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-card shadow-card">
+          {/* Header bar — a separate container from the scrolling rows. */}
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="h-9 w-72 pl-9 shadow-none"
+                placeholder="Search by name or email…"
+                aria-label="Search guests"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+            {!guests.isLoading && (
+              <span className="hidden text-sm text-muted-foreground sm:inline">
+                {filtered.length} {filtered.length === 1 ? "guest" : "guests"}
+              </span>
+            )}
+          </div>
 
-        {guests.isLoading ? (
-          <CenteredSpinner label="Loading guests…" />
-        ) : guests.isError ? (
-          <ErrorBox message={(guests.error as Error).message} />
-        ) : filtered.length === 0 ? (
-          <EmptyBox
-            icon={<Users className="h-8 w-8 text-muted-foreground" />}
-            title={query ? "No matching guests" : "No guests yet"}
-            body={
-              query
-                ? "Try a different search."
-                : "Add your first guest with the button above."
-            }
-          />
-        ) : (
-          <div className="overflow-hidden rounded-3xl bg-card shadow-card">
-            <Table>
-              <TableHeader>
+          {/* Body — only this region scrolls. */}
+          {guests.isLoading ? (
+            <div className="flex flex-1 items-center justify-center">
+              <CenteredSpinner label="Loading guests…" />
+            </div>
+          ) : guests.isError ? (
+            <div className="m-4 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              {(guests.error as Error).message}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center text-center">
+              <Users className="mb-3 h-8 w-8 text-muted-foreground" />
+              <p className="font-medium">
+                {query ? "No matching guests" : "No guests yet"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {query
+                  ? "Try a different search."
+                  : "Add your first guest with the button above."}
+              </p>
+            </div>
+          ) : (
+            <Table containerClassName="min-h-0 flex-1">
+              <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
@@ -107,8 +126,15 @@ export function GuestsPage() {
               <TableBody>
                 {filtered.map((g) => (
                   <TableRow key={g.id}>
-                    <TableCell className="font-medium">
-                      {g.first_name} {g.last_name}
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground/70">
+                          {initials(g.first_name, g.last_name)}
+                        </span>
+                        <span className="font-medium">
+                          {g.first_name} {g.last_name}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {g.email ?? "—"}
@@ -148,8 +174,8 @@ export function GuestsPage() {
                 ))}
               </TableBody>
             </Table>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {formOpen && (

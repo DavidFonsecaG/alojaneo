@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { Plus, Pencil, Trash2, Tags } from "lucide-react";
+import { Plus, Pencil, Trash2, Tags, Search } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
@@ -31,7 +31,14 @@ import {
   inputToCents,
   toDateInput,
 } from "../lib/format";
+import { cn } from "../lib/utils";
 import type { RatePlan, RoomType } from "../types";
+
+const ONLINE_FILTERS: { value: string; label: string; dot?: string }[] = [
+  { value: "", label: "All" },
+  { value: "online", label: "Online", dot: "bg-emerald-500" },
+  { value: "offline", label: "Offline", dot: "bg-slate-400" },
+];
 
 export function RatePlansPage() {
   const ratePlans = useRatePlans();
@@ -39,6 +46,8 @@ export function RatePlansPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<RatePlan | null>(null);
   const [deleting, setDeleting] = useState<RatePlan | null>(null);
+  const [query, setQuery] = useState("");
+  const [online, setOnline] = useState("");
   const deletePlan = useDeleteRatePlan();
 
   const types = roomTypes.data ?? [];
@@ -47,6 +56,17 @@ export function RatePlansPage() {
     return (id: string) => m.get(id) ?? "—";
   }, [types]);
   const hasTypes = types.length > 0;
+
+  const plans = ratePlans.data ?? [];
+  const q = query.trim().toLowerCase();
+  const filtered = plans.filter((rp) => {
+    if (online === "online" && !rp.bookable_online) return false;
+    if (online === "offline" && rp.bookable_online) return false;
+    if (q && !`${rp.name} ${typeName(rp.room_type_id)}`.toLowerCase().includes(q))
+      return false;
+    return true;
+  });
+  const hasFilters = query !== "" || online !== "";
 
   return (
     // Same shell as the Reservations/Calendar pages: header on the canvas,
@@ -81,82 +101,134 @@ export function RatePlansPage() {
           title="Create a room type first"
           body="Rate plans price a room type. Add one on the Rooms page first."
         />
-      ) : !ratePlans.data || ratePlans.data.length === 0 ? (
-        <EmptyBox
-          icon={<Tags className="h-8 w-8 text-muted-foreground" />}
-          title="No rate plans yet"
-          body="Add your first rate plan with the button above."
-        />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-card shadow-card">
-          <Table containerClassName="min-h-0 flex-1">
-            <TableHeader className="sticky top-0 z-10 bg-card">
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Room type</TableHead>
-                <TableHead className="text-right">Base rate</TableHead>
-                <TableHead>Online</TableHead>
-                <TableHead>Cancellation</TableHead>
-                <TableHead>Stay</TableHead>
-                <TableHead>Validity</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ratePlans.data.map((rp) => (
-                <TableRow key={rp.id}>
-                  <TableCell className="font-medium">{rp.name}</TableCell>
-                  <TableCell>{typeName(rp.room_type_id)}</TableCell>
-                  <TableCell className="text-right">
-                    {formatMoney(rp.base_rate_cents, rp.currency)}
-                  </TableCell>
-                  <TableCell>
-                    {rp.bookable_online ? (
-                      <Badge variant="success">Online</Badge>
-                    ) : (
-                      <Badge variant="neutral">Offline</Badge>
+          {/* Header bar — a separate container from the scrolling rows. */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search name or room type…"
+                  aria-label="Search rate plans"
+                  className="h-9 w-72 pl-9 shadow-none"
+                />
+              </div>
+              <span className="hidden text-sm text-muted-foreground sm:inline">
+                {filtered.length} {filtered.length === 1 ? "plan" : "plans"}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {ONLINE_FILTERS.map((f) => {
+                const active = online === f.value;
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => setOnline(f.value)}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                      active
+                        ? "border-transparent bg-neutral-900 text-white"
+                        : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
                     )}
-                  </TableCell>
-                  <TableCell className="capitalize text-muted-foreground">
-                    {rp.cancellation_policy?.replace(/_/g, " ") ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {rp.min_stay || rp.max_stay
-                      ? `${rp.min_stay ?? 1}–${rp.max_stay ?? "∞"}`
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {rp.valid_from || rp.valid_to
-                      ? `${formatDate(rp.valid_from)} – ${formatDate(rp.valid_to)}`
-                      : "Always"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setEditing(rp);
-                          setFormOpen(true);
-                        }}
-                        aria-label="Edit rate plan"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleting(rp)}
-                        aria-label="Delete rate plan"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  >
+                    {f.dot && (
+                      <span className={cn("h-2 w-2 rounded-full", f.dot)} />
+                    )}
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Body — only this region scrolls. */}
+          {filtered.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center text-center">
+              <Tags className="mb-3 h-8 w-8 text-muted-foreground" />
+              <p className="font-medium">
+                {hasFilters ? "No matching rate plans" : "No rate plans yet"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {hasFilters
+                  ? "Try a different search or filter."
+                  : "Add your first rate plan with the button above."}
+              </p>
+            </div>
+          ) : (
+            <Table containerClassName="min-h-0 flex-1">
+              <TableHeader className="sticky top-0 z-10 bg-card">
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Room type</TableHead>
+                  <TableHead className="text-right">Base rate</TableHead>
+                  <TableHead>Online</TableHead>
+                  <TableHead>Cancellation</TableHead>
+                  <TableHead>Stay</TableHead>
+                  <TableHead>Validity</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((rp) => (
+                  <TableRow key={rp.id}>
+                    <TableCell className="font-medium">{rp.name}</TableCell>
+                    <TableCell>{typeName(rp.room_type_id)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatMoney(rp.base_rate_cents, rp.currency)}
+                    </TableCell>
+                    <TableCell>
+                      {rp.bookable_online ? (
+                        <Badge variant="success">Online</Badge>
+                      ) : (
+                        <Badge variant="neutral">Offline</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="capitalize text-muted-foreground">
+                      {rp.cancellation_policy?.replace(/_/g, " ") ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {rp.min_stay || rp.max_stay
+                        ? `${rp.min_stay ?? 1}–${rp.max_stay ?? "∞"}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {rp.valid_from || rp.valid_to
+                        ? `${formatDate(rp.valid_from)} – ${formatDate(rp.valid_to)}`
+                        : "Always"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditing(rp);
+                            setFormOpen(true);
+                          }}
+                          aria-label="Edit rate plan"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleting(rp)}
+                          aria-label="Delete rate plan"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       )}
 
