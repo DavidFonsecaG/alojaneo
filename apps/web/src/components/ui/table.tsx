@@ -11,7 +11,13 @@ export function Table({
   return (
     <div className={cn("w-full overflow-auto", containerClassName)}>
       <table
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn(
+          // Separate border model (not the default collapse) so cell borders
+          // belong to the cells and stay painted with a `sticky` header when
+          // the body scrolls underneath.
+          "w-full caption-bottom border-separate border-spacing-0 text-sm",
+          className,
+        )}
         {...props}
       />
     </div>
@@ -22,19 +28,22 @@ export function TableHeader({
   className,
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return (
-    <thead
-      className={cn("[&_tr]:border-b border-border", className)}
-      {...props}
-    />
-  );
+  // The header's bottom divider lives on the cells (TableHead) as an inset
+  // shadow rather than on the row, so it stays put when the header is sticky
+  // and the body scrolls underneath.
+  return <thead className={cn(className)} {...props} />;
 }
 
 export function TableBody({
   className,
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props} />;
+  return (
+    <tbody
+      className={cn("[&_tr:last-child_td]:border-b-0", className)}
+      {...props}
+    />
+  );
 }
 
 export function TableRow({
@@ -44,7 +53,7 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        "border-b border-border transition-colors hover:bg-muted/50",
+        "transition-colors hover:bg-muted/50",
         className,
       )}
       {...props}
@@ -59,7 +68,7 @@ export function TableHead({
   return (
     <th
       className={cn(
-        "h-10 px-4 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground",
+        "h-10 border-b border-border px-4 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground",
         className,
       )}
       {...props}
@@ -72,6 +81,9 @@ export function TableCell({
   ...props
 }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={cn("p-4 align-middle", className)} {...props} />
+    <td
+      className={cn("border-b border-border p-4 align-middle", className)}
+      {...props}
+    />
   );
 }
