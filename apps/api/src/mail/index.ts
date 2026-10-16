@@ -97,12 +97,57 @@ class ResendMailer implements Mailer {
   }
 }
 
+// Wraps the real mailer for local dev: codes are always printed to the console
+// (and readable by getLastDevCode), and a provider send failure is tolerated —
+// so a test-mode Resend account (which only delivers to the owner's address)
+// never locks you out of login/signup. Never used in production.
+class DevTeeMailer implements Mailer {
+  readonly name: string;
+  constructor(private inner: Mailer) {
+    this.name = `${inner.name}+devlog`;
+  }
+  private logCode(kind: string, to: string, code: string) {
+    lastDevCodes.set(to.toLowerCase(), code);
+    // eslint-disable-next-line no-console
+    console.log(`\n[mail:dev] ${kind} for ${to}: ${code} (expires in 10 min)\n`);
+  }
+  private async tee(send: Promise<void>) {
+    try {
+      await send;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[mail:dev] real send failed (${(err as Error).message}); use the code logged above`,
+      );
+    }
+  }
+  async sendLoginCode(to: string, code: string): Promise<void> {
+    this.logCode("Login code", to, code);
+    await this.tee(this.inner.sendLoginCode(to, code));
+  }
+  async sendVerificationCode(to: string, code: string): Promise<void> {
+    this.logCode("Verification code", to, code);
+    await this.tee(this.inner.sendVerificationCode(to, code));
+  }
+  sendBookingConfirmation(
+    to: string,
+    data: BookingConfirmationData,
+  ): Promise<void> {
+    return this.inner.sendBookingConfirmation(to, data);
+  }
+}
+
 let mailer: Mailer | null = null;
 
 export function getMailer(): Mailer {
   if (mailer) return mailer;
   const key = process.env.RESEND_API_KEY;
   const from = process.env.MAIL_FROM ?? "Alojaneo <onboarding@resend.dev>";
-  mailer = key ? new ResendMailer(key, from) : new ConsoleMailer();
+  const base: Mailer = key ? new ResendMailer(key, from) : new ConsoleMailer();
+  // Outside production, tee codes to the console so local dev is never blocked
+  // by email (e.g. a test-mode Resend account). With no key the console mailer
+  // already does this.
+  mailer =
+    key && process.env.NODE_ENV !== "production" ? new DevTeeMailer(base) : base;
   return mailer;
 }
