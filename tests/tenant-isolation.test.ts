@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildApp } from "../apps/api/src/index.js";
 import { getLastDevCode } from "../apps/api/src/mail/index.js";
+import { signupHotel } from "./helpers.js";
 import type { FastifyInstance } from "fastify";
 
 describe("tenant isolation through the real API + connection pool", () => {
@@ -11,21 +12,18 @@ describe("tenant isolation through the real API + connection pool", () => {
     await app.ready();
   });
 
-  async function signup(hotelName: string, slug: string, email: string) {
-    const res = await app.inject({
-      method: "POST",
-      url: "/auth/signup",
-      payload: { hotelName, hotelSlug: slug, email, password: "password123" },
+  async function signup(hotelName: string, _slug: string, email: string) {
+    const body = await signupHotel(app, {
+      hotelName,
+      email,
+      password: "password123",
     });
-    expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.body);
     expect(body.token).toBeDefined();
-    expect(body.hotel).toBeDefined();
     expect(body.hotel.id).toBeDefined();
     expect(body.hotel.name).toBe(hotelName);
     // The slug is derived from the name server-side (not caller-supplied).
     expect(body.hotel.slug).toMatch(/^[a-z0-9-]+$/);
-    return body.token as string;
+    return body.token;
   }
 
   it("lets a hotel create and list its own room types", async () => {

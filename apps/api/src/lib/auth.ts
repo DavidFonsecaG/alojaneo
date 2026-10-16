@@ -29,6 +29,30 @@ export function verifyToken(token: string): TokenPayload {
   return jwt.verify(token, JWT_SECRET) as TokenPayload;
 }
 
+// Short-lived, stateless ticket for signup email verification. It carries the
+// pending account plus the hashed verification code, so no hotel/user row is
+// created until the emailed code is confirmed (no orphan accounts, no email
+// squatting). Signed with the server secret, so the client can't forge it.
+export type SignupTicketPayload = {
+  typ: "signup";
+  hotelName: string;
+  email: string;
+  passwordHash: string;
+  codeHash: string;
+};
+
+export function signSignupTicket(
+  data: Omit<SignupTicketPayload, "typ">,
+): string {
+  return jwt.sign({ ...data, typ: "signup" }, JWT_SECRET, { expiresIn: "10m" });
+}
+
+export function verifySignupTicket(token: string): SignupTicketPayload {
+  const payload = jwt.verify(token, JWT_SECRET) as SignupTicketPayload;
+  if (payload.typ !== "signup") throw new Error("Not a signup ticket");
+  return payload;
+}
+
 // Platform owner (cross-hotel developer) sessions — no hotel/role, just the
 // user id plus a marker. Also 24h.
 export type PlatformTokenPayload = { userId: string; platformOwner: true };

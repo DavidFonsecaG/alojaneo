@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildApp } from "../apps/api/src/index.js";
+import { signupHotel } from "./helpers.js";
 import type { FastifyInstance } from "fastify";
 
 // The public booking engine reads and writes RLS-protected tables
@@ -23,18 +24,11 @@ describe("public booking engine", () => {
     await app.ready();
     const ts = Date.now();
 
-    const signupRes = await app.inject({
-      method: "POST",
-      url: "/auth/signup",
-      payload: {
-        hotelName: "Public Booking Hotel",
-        hotelSlug: `public-book-${ts}`,
-        email: `public-${ts}@test.com`,
-        password: "password123",
-      },
+    const signup = await signupHotel(app, {
+      hotelName: "Public Booking Hotel",
+      email: `public-${ts}@test.com`,
+      password: "password123",
     });
-    expect(signupRes.statusCode).toBe(201);
-    const signup = JSON.parse(signupRes.body);
     token = signup.token;
     hotelSlug = signup.hotel.slug;
 

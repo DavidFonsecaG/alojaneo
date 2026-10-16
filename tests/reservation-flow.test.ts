@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildApp } from "../apps/api/src/index.js";
+import { signupHotel } from "./helpers.js";
 import type { FastifyInstance } from "fastify";
 
 describe("reservation lifecycle through the real API", () => {
@@ -20,19 +21,13 @@ describe("reservation lifecycle through the real API", () => {
     await app.ready();
     const ts = Date.now();
 
-    // signup
-    const signupRes = await app.inject({
-      method: "POST",
-      url: "/auth/signup",
-      payload: {
-        hotelName: "Reservation Test Hotel",
-        hotelSlug: `res-test-${ts}`,
-        email: `res-${ts}@test.com`,
-        password: "password123",
-      },
+    // signup (two-step, email-verified)
+    const signup = await signupHotel(app, {
+      hotelName: "Reservation Test Hotel",
+      email: `res-${ts}@test.com`,
+      password: "password123",
     });
-    expect(signupRes.statusCode).toBe(201);
-    token = JSON.parse(signupRes.body).token;
+    token = signup.token;
 
     // create room type
     const rtRes = await app.inject({
@@ -335,18 +330,13 @@ describe("reservation lifecycle through the real API", () => {
 
   it("enforces tenant isolation on reservations", async () => {
     const ts = Date.now();
-    const signupRes = await app.inject({
-      method: "POST",
-      url: "/auth/signup",
-      payload: {
+    const otherToken = (
+      await signupHotel(app, {
         hotelName: "Other Hotel",
-        hotelSlug: `other-hotel-${ts}`,
         email: `other-${ts}@test.com`,
         password: "password123",
-      },
-    });
-    expect(signupRes.statusCode).toBe(201);
-    const otherToken = JSON.parse(signupRes.body).token;
+      })
+    ).token;
 
     const res = await app.inject({
       method: "GET",
@@ -372,18 +362,12 @@ describe("double-booking prevention", () => {
     await app.ready();
     const ts = Date.now();
 
-    const signupRes = await app.inject({
-      method: "POST",
-      url: "/auth/signup",
-      payload: {
-        hotelName: "Overlap Test Hotel",
-        hotelSlug: `overlap-test-${ts}`,
-        email: `overlap-${ts}@test.com`,
-        password: "password123",
-      },
+    const signup = await signupHotel(app, {
+      hotelName: "Overlap Test Hotel",
+      email: `overlap-${ts}@test.com`,
+      password: "password123",
     });
-    expect(signupRes.statusCode).toBe(201);
-    token = JSON.parse(signupRes.body).token;
+    token = signup.token;
 
     const rtRes = await app.inject({
       method: "POST",

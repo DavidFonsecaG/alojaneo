@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildApp } from "../apps/api/src/index.js";
 import { getLastDevCode } from "../apps/api/src/mail/index.js";
+import { signupHotel } from "./helpers.js";
 import type { FastifyInstance } from "fastify";
 
 // Covers /users CRUD, the self/own-role guards, and that a general user's
@@ -18,20 +19,11 @@ describe("users & permissions", () => {
     app = buildApp();
     await app.ready();
     const ts = Date.now();
-    const signup = JSON.parse(
-      (
-        await app.inject({
-          method: "POST",
-          url: "/auth/signup",
-          payload: {
-            hotelName: "Users Hotel",
-            hotelSlug: `users-${ts}`,
-            email: `admin-${ts}@test.com`,
-            password: "password123",
-          },
-        })
-      ).body,
-    );
+    const signup = await signupHotel(app, {
+      hotelName: "Users Hotel",
+      email: `admin-${ts}@test.com`,
+      password: "password123",
+    });
     token = signup.token;
   });
 

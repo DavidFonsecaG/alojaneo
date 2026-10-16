@@ -1,8 +1,16 @@
 import type { FastifyInstance } from "fastify";
+import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { sqlUnscoped, withUserContext } from "../db.js";
-import { hashPassword, verifyPassword, signToken } from "../lib/auth.js";
+import {
+  hashPassword,
+  verifyPassword,
+  signToken,
+  signSignupTicket,
+  verifySignupTicket,
+} from "../lib/auth.js";
 import { consumeLoginCode, issueLoginCode } from "../lib/loginCode.js";
+import { getMailer } from "../mail/index.js";
 
 const signupSchema = z.object({
   hotelName: z.string().min(1),
@@ -34,6 +42,11 @@ const verifyCodeSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "code must be 6 digits"),
 });
 
+const signupVerifySchema = z.object({
+  ticket: z.string().min(1),
+  code: z.string().regex(/^\d{6}$/, "code must be 6 digits"),
+});
+
 export const defaultAdminPermissions = {
   reservations: { view: true, create: true, update: true, cancel: true },
   rooms: { view: true, manage: true },
@@ -46,13 +59,66 @@ export const defaultAdminPermissions = {
   settings: { view: true, manage: true },
 };
 
+// Create a hotel plus its first user (always 'admin'), deriving a unique
+// name-based slug. Hotel + user creation happens unscoped (no tenant exists
+// yet), but once the hotel row exists we set app.current_hotel_id within the
+// same transaction before inserting into hotel_users — that table's RLS policy
+// requires it even for the very first membership row of a brand new hotel.
+async function createHotelWithAdmin(
+  hotelName: string,
+  email: string,
+  passwordHash: string,
+) {
+  const base = slugify(hotelName);
+  const rows = await sqlUnscoped`
+    select slug from hotels where slug = ${base} or slug like ${base + "-%"}
+  `;
+  const taken = new Set(rows.map((r) => r.slug as string));
+  let slug = base;
+  if (taken.has(slug)) {
+    let n = 2;
+    while (taken.has(`${base}-${n}`)) n++;
+    slug = `${base}-${n}`;
+  }
+
+  const insert = (hotelSlug: string) =>
+    sqlUnscoped.begin(async (tx) => {
+      const [hotel] = await tx`
+        insert into hotels (name, slug) values (${hotelName}, ${hotelSlug})
+        returning id, name, slug
+      `;
+      await tx`select set_config('app.current_hotel_id', ${hotel.id}, true)`;
+      const [user] = await tx`
+        insert into users (email, password_hash) values (${email}, ${passwordHash})
+        returning id, email
+      `;
+      await tx`
+        insert into hotel_users (hotel_id, user_id, role, permissions)
+        values (${hotel.id}, ${user.id}, 'admin', ${JSON.stringify(defaultAdminPermissions)}::jsonb)
+      `;
+      return { hotel, user };
+    });
+
+  try {
+    return await insert(slug);
+  } catch (err) {
+    const e = err as { code?: string; constraint_name?: string };
+    // A slug that raced to taken retries once; an email collision propagates
+    // (the caller maps it to 409).
+    if (e.code === "23505" && !String(e.constraint_name ?? "").includes("email")) {
+      return await insert(`${base}-${Math.random().toString(36).slice(2, 6)}`);
+    }
+    throw err;
+  }
+}
+
 export async function authRoutes(app: FastifyInstance) {
-  // Creates a new hotel account plus its first user, who is always 'admin'.
-  // This is the one place a hotel row gets created outside any existing
-  // tenant context, which is correct — there's no tenant to scope to yet.
+  // Signup step 1: validate, email a 6-digit code, and return a short-lived
+  // signed ticket carrying the pending account. Nothing is written to the DB
+  // yet — the hotel is only created once the code is confirmed (step 2), so a
+  // fake or mistyped email leaves no orphan account.
   app.post("/auth/signup", async (req, reply) => {
     const body = signupSchema.parse(req.body);
-    const passwordHash = await hashPassword(body.password);
 
     const existing = await sqlUnscoped`
       select id from users where email = ${body.email}
@@ -61,63 +127,58 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(409).send({ error: "Email already registered" });
     }
 
-    // The hotel chooses only its name; we derive the public booking slug from
-    // it and make it unique (base, base-2, base-3, …).
-    const base = slugify(body.hotelName);
-    const rows = await sqlUnscoped`
-      select slug from hotels where slug = ${base} or slug like ${base + "-%"}
-    `;
-    const taken = new Set(rows.map((r) => r.slug as string));
-    let slug = base;
-    if (taken.has(slug)) {
-      let n = 2;
-      while (taken.has(`${base}-${n}`)) n++;
-      slug = `${base}-${n}`;
+    const passwordHash = await hashPassword(body.password);
+    const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+    const codeHash = await hashPassword(code);
+    const ticket = signSignupTicket({
+      hotelName: body.hotelName,
+      email: body.email,
+      passwordHash,
+      codeHash,
+    });
+    await getMailer().sendLoginCode(body.email, code);
+
+    return reply.send({ challenge: "code", email: body.email, ticket });
+  });
+
+  // Signup step 2: confirm the emailed code against the ticket, then create the
+  // hotel + first admin user and issue the session token.
+  app.post("/auth/signup/verify", async (req, reply) => {
+    const body = signupVerifySchema.parse(req.body);
+
+    let ticket;
+    try {
+      ticket = verifySignupTicket(body.ticket);
+    } catch {
+      return reply
+        .code(401)
+        .send({ error: "Your signup session expired. Please sign up again." });
     }
 
-    // Hotel + user creation happens unscoped (no tenant exists yet), but
-    // once the hotel row is created we DO set app.current_hotel_id within
-    // this same transaction before inserting into hotel_users — that
-    // table's RLS policy requires it, even for the very first membership
-    // row of a brand new hotel. There's no exception carved out for
-    // "first row ever" — the context just gets established as soon as
-    // it's knowable, which is the moment the hotel id exists.
-    const createHotelAndAdmin = (hotelSlug: string) =>
-      sqlUnscoped.begin(async (tx) => {
-        const [hotel] = await tx`
-          insert into hotels (name, slug) values (${body.hotelName}, ${hotelSlug})
-          returning id, name, slug
-        `;
-        await tx`select set_config('app.current_hotel_id', ${hotel.id}, true)`;
-        const [user] = await tx`
-          insert into users (email, password_hash) values (${body.email}, ${passwordHash})
-          returning id, email
-        `;
-        await tx`
-          insert into hotel_users (hotel_id, user_id, role, permissions)
-          values (${hotel.id}, ${user.id}, 'admin', ${JSON.stringify(defaultAdminPermissions)}::jsonb)
-        `;
-        return { hotel, user };
-      });
+    if (!(await verifyPassword(body.code, ticket.codeHash))) {
+      return reply.code(401).send({ error: "Invalid or expired code" });
+    }
 
-    let result: Awaited<ReturnType<typeof createHotelAndAdmin>> | undefined;
+    const existing = await sqlUnscoped`
+      select id from users where email = ${ticket.email}
+    `;
+    if (existing.length > 0) {
+      return reply.code(409).send({ error: "Email already registered" });
+    }
+
+    let result;
     try {
-      result = await createHotelAndAdmin(slug);
+      result = await createHotelWithAdmin(
+        ticket.hotelName,
+        ticket.email,
+        ticket.passwordHash,
+      );
     } catch (err) {
       const e = err as { code?: string; constraint_name?: string };
-      if (e.code === "23505") {
-        if (String(e.constraint_name ?? "").includes("email")) {
-          return reply.code(409).send({ error: "Email already registered" });
-        }
-        // Slug raced to taken between the check and insert — retry once.
-        slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
-        result = await createHotelAndAdmin(slug);
-      } else {
-        throw err;
+      if (e.code === "23505" && String(e.constraint_name ?? "").includes("email")) {
+        return reply.code(409).send({ error: "Email already registered" });
       }
-    }
-    if (!result) {
-      return reply.code(500).send({ error: "Could not create account" });
+      throw err;
     }
 
     const token = signToken({

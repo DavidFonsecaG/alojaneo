@@ -12,6 +12,7 @@ import type {
   LoginChallenge,
   LoginResponse,
   Role,
+  SignupChallenge,
   SignupResponse,
 } from "../types";
 
@@ -37,7 +38,10 @@ interface AuthContextValue {
   // Step 1: password → emailed code challenge. Step 2: verifyCode → session.
   login: (email: string, password: string) => Promise<LoginChallenge>;
   verifyCode: (email: string, code: string) => Promise<void>;
-  signup: (input: SignupInput) => Promise<void>;
+  // Signup is also two-step: signup emails a code + returns a ticket, then
+  // signupVerify confirms the code and establishes the session.
+  signup: (input: SignupInput) => Promise<SignupChallenge>;
+  signupVerify: (ticket: string, code: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -141,10 +145,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signup = useCallback(
-    async (input: SignupInput) => {
-      const res = await api.post<SignupResponse>("/auth/signup", input, {
+    (input: SignupInput) =>
+      api.post<SignupChallenge>("/auth/signup", input, {
         skipAuthRedirect: true,
-      });
+      }),
+    [],
+  );
+
+  const signupVerify = useCallback(
+    async (ticket: string, code: string) => {
+      const res = await api.post<SignupResponse>(
+        "/auth/signup/verify",
+        { ticket, code },
+        { skipAuthRedirect: true },
+      );
       // Signup returns no permissions; the first user is always admin.
       applyToken(res.token, null);
     },
@@ -159,9 +173,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       verifyCode,
       signup,
+      signupVerify,
       logout,
     }),
-    [user, permissions, login, verifyCode, signup, logout],
+    [user, permissions, login, verifyCode, signup, signupVerify, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildApp } from "../apps/api/src/index.js";
+import { signupHotel } from "./helpers.js";
 import type { FastifyInstance } from "fastify";
 
 describe("entity CRUD", () => {
@@ -11,17 +12,11 @@ describe("entity CRUD", () => {
     app = buildApp();
     await app.ready();
     const ts = Date.now();
-    const res = await app.inject({
-      method: "POST",
-      url: "/auth/signup",
-      payload: {
-        hotelName: "CRUD Test Hotel",
-        hotelSlug: `crud-test-${ts}`,
-        email: `crud-${ts}@test.com`,
-        password: "password123",
-      },
+    const body = await signupHotel(app, {
+      hotelName: "CRUD Test Hotel",
+      email: `crud-${ts}@test.com`,
+      password: "password123",
     });
-    const body = JSON.parse(res.body);
     token = body.token;
     hotelId = body.hotel.id;
   });

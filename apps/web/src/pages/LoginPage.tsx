@@ -131,7 +131,8 @@ function OtpInput({
 }
 
 export function LoginPage() {
-  const { isAuthenticated, login, verifyCode, signup } = useAuth();
+  const { isAuthenticated, login, verifyCode, signup, signupVerify } =
+    useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mode, setMode] = useState<Mode>("login");
@@ -145,6 +146,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [hotelName, setHotelName] = useState("");
+  const [ticket, setTicket] = useState("");
 
   const redirectTo =
     (location.state as LocationState)?.from?.pathname ?? "/reservations";
@@ -154,15 +156,23 @@ export function LoginPage() {
   }
 
   const isSignup = mode === "signup";
-  const codeStep = !isSignup && step === "code";
+  const codeStep = step === "code";
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      if (isSignup) {
-        await signup({ hotelName, email, password });
+      if (isSignup && step === "credentials") {
+        // Step 1: email a verification code, then move to the code step.
+        const res = await signup({ hotelName, email, password });
+        setEmail(res.email);
+        setTicket(res.ticket);
+        setCode("");
+        setStep("code");
+      } else if (isSignup) {
+        // Step 2: confirm the code → creates the account + signs in.
+        await signupVerify(ticket, code);
         navigate(redirectTo, { replace: true });
       } else if (step === "credentials") {
         await login(email, password);
@@ -186,12 +196,14 @@ export function LoginPage() {
   function switchMode() {
     setMode(isSignup ? "login" : "signup");
     setStep("credentials");
+    setTicket("");
     setError(null);
   }
 
   function backToCredentials() {
     setStep("credentials");
     setCode("");
+    setTicket("");
     setError(null);
   }
 
@@ -339,7 +351,9 @@ export function LoginPage() {
             >
               {submitting && <Spinner />}
               {codeStep
-                ? "Verify & sign in"
+                ? isSignup
+                  ? "Verify & create account"
+                  : "Verify & sign in"
                 : isSignup
                   ? "Create account"
                   : "Continue"}

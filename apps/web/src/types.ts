@@ -35,6 +35,14 @@ export interface LoginChallenge {
   email: string;
 }
 
+// POST /auth/signup now emails a code and returns a ticket; the account is
+// created by POST /auth/signup/verify, which returns SignupResponse.
+export interface SignupChallenge {
+  challenge: "code";
+  email: string;
+  ticket: string;
+}
+
 export interface SignupResponse {
   token: string;
   hotel: AuthHotel;

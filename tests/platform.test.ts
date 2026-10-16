@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { buildApp } from "../apps/api/src/index.js";
 import { getLastDevCode } from "../apps/api/src/mail/index.js";
 import { sqlUnscoped } from "../apps/api/src/db.js";
+import { signupHotel } from "./helpers.js";
 import type { FastifyInstance } from "fastify";
 
 // Covers the owner-only platform console: OTP login that issues a platform
@@ -22,37 +23,21 @@ describe("platform owner console", () => {
     await app.ready();
 
     // The owner is a signed-up user flagged as platform owner.
-    const ownerSignup = JSON.parse(
-      (
-        await app.inject({
-          method: "POST",
-          url: "/auth/signup",
-          payload: {
-            hotelName: "Owner Hotel",
-            hotelSlug: `owner-${ts}`,
-            email: ownerEmail,
-            password: ownerPassword,
-          },
-        })
-      ).body,
-    );
+    const ownerSignup = await signupHotel(app, {
+      hotelName: "Owner Hotel",
+      email: ownerEmail,
+      password: ownerPassword,
+    });
     ownerHotelId = ownerSignup.hotel.id;
     await sqlUnscoped`update users set is_platform_owner = true where email = ${ownerEmail}`;
 
     // A separate ordinary hotel admin (not a platform owner).
-    hotelAdminToken = JSON.parse(
-      (
-        await app.inject({
-          method: "POST",
-          url: "/auth/signup",
-          payload: {
-            hotelName: "Ordinary Hotel",
-            hotelSlug: `ordinary-${ts}`,
-            email: `ordinary-${ts}@test.com`,
-            password: "password123",
-          },
-        })
-      ).body,
+    hotelAdminToken = (
+      await signupHotel(app, {
+        hotelName: "Ordinary Hotel",
+        email: `ordinary-${ts}@test.com`,
+        password: "password123",
+      })
     ).token;
   });
 
