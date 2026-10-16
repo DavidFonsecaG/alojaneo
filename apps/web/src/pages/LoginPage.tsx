@@ -25,6 +25,18 @@ const HIGHLIGHTS = [
   "Housekeeping & payments",
 ];
 
+// Mirrors the server's slug generation so signup can preview the booking URL.
+// The server still owns the final (unique) slug.
+function slugify(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+
 // The hexagon brand mark used in the app sidebar.
 function BrandMark({ className }: { className?: string }) {
   return (
@@ -133,7 +145,6 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [hotelName, setHotelName] = useState("");
-  const [hotelSlug, setHotelSlug] = useState("");
 
   const redirectTo =
     (location.state as LocationState)?.from?.pathname ?? "/reservations";
@@ -151,7 +162,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       if (isSignup) {
-        await signup({ hotelName, hotelSlug, email, password });
+        await signup({ hotelName, email, password });
         navigate(redirectTo, { replace: true });
       } else if (step === "credentials") {
         await login(email, password);
@@ -237,36 +248,24 @@ export function LoginPage() {
               </div>
             )}
             {!codeStep && isSignup && (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="hotelName">Hotel name</Label>
-                  <Input
-                    id="hotelName"
-                    value={hotelName}
-                    onChange={(e) => setHotelName(e.target.value)}
-                    placeholder="Hotel Miramar"
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="hotelSlug">Hotel slug</Label>
-                  <Input
-                    id="hotelSlug"
-                    value={hotelSlug}
-                    onChange={(e) =>
-                      setHotelSlug(
-                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
-                      )
-                    }
-                    placeholder="hotel-miramar"
-                    pattern="[a-z0-9-]+"
-                    required
-                  />
+              <div className="space-y-1.5">
+                <Label htmlFor="hotelName">Hotel name</Label>
+                <Input
+                  id="hotelName"
+                  value={hotelName}
+                  onChange={(e) => setHotelName(e.target.value)}
+                  placeholder="Hotel Miramar"
+                  required
+                />
+                {hotelName.trim() && (
                   <p className="text-xs text-muted-foreground">
-                    Used in your public booking URL. Lowercase, hyphens only.
+                    Your booking page:{" "}
+                    <span className="font-medium text-foreground">
+                      …/{slugify(hotelName) || "your-hotel"}
+                    </span>
                   </p>
-                </div>
-              </>
+                )}
+              </div>
             )}
 
             {!codeStep && (

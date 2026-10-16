@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ExternalLink, ImageIcon, Palette, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
+import { Input, Label } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Spinner } from "../components/ui/spinner";
 import { cn } from "../lib/utils";
@@ -124,6 +125,7 @@ function BrandingSettings() {
   const update = useUpdateHotelProfile();
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const [name, setName] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
   const [position, setPosition] = useState<number>(DEFAULT_POSITION);
   const [accent, setAccent] = useState<string>("");
@@ -133,15 +135,18 @@ function BrandingSettings() {
   const p = profile.data;
   useEffect(() => {
     if (!p) return;
+    setName(p.name ?? "");
     setBanner(p.banner_url);
     setPosition(p.banner_position ?? DEFAULT_POSITION);
     setAccent(p.accent_color ?? "");
-  }, [p?.banner_url, p?.banner_position, p?.accent_color]);
+  }, [p?.name, p?.banner_url, p?.banner_position, p?.accent_color]);
 
+  const nameDirty = !!p && name.trim() !== (p.name ?? "");
+  const nameValid = name.trim().length > 0;
   const bannerDirty = !!p && banner !== (p.banner_url ?? null);
   const positionDirty = !!p && position !== (p.banner_position ?? DEFAULT_POSITION);
   const accentDirty = !!p && (accent || null) !== (p.accent_color ?? null);
-  const dirty = bannerDirty || positionDirty || accentDirty;
+  const dirty = nameDirty || bannerDirty || positionDirty || accentDirty;
 
   async function onPickFile(e: FormEvent<HTMLInputElement>) {
     const file = e.currentTarget.files?.[0];
@@ -162,21 +167,24 @@ function BrandingSettings() {
 
   function save() {
     const input: {
+      name?: string;
       bannerUrl?: string;
       bannerPosition?: number;
       accentColor?: string;
     } = {};
+    if (nameDirty && nameValid) input.name = name.trim();
     if (bannerDirty) input.bannerUrl = banner ?? ""; // "" clears
     if (positionDirty) input.bannerPosition = position;
     if (accentDirty) input.accentColor = accent || ""; // "" resets to default
     update.mutate(input, {
-      onError: () => setError("Couldn't save branding. Please try again."),
+      onError: () => setError("Couldn't save changes. Please try again."),
       onSuccess: () => setError(null),
     });
   }
 
   function reset() {
     if (!p) return;
+    setName(p.name ?? "");
     setBanner(p.banner_url);
     setPosition(p.banner_position ?? DEFAULT_POSITION);
     setAccent(p.accent_color ?? "");
@@ -208,6 +216,31 @@ function BrandingSettings() {
           <Spinner />
         ) : (
           <>
+            {/* Hotel name — the title guests see on the booking page */}
+            <div className="space-y-1.5">
+              <Label htmlFor="hotelName">Hotel name</Label>
+              <Input
+                id="hotelName"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Hotel Miramar"
+                className="max-w-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Shown to guests across your booking page.
+                {p?.slug && (
+                  <>
+                    {" "}
+                    Your booking link{" "}
+                    <span className="font-medium text-foreground">
+                      …/{p.slug}
+                    </span>{" "}
+                    doesn't change.
+                  </>
+                )}
+              </p>
+            </div>
+
             {/* Banner */}
             <div className="space-y-2">
               <div className="text-sm font-medium">Banner image</div>
@@ -336,7 +369,7 @@ function BrandingSettings() {
                   type="button"
                   size="sm"
                   onClick={save}
-                  disabled={update.isPending}
+                  disabled={update.isPending || !nameValid}
                 >
                   {update.isPending && <Spinner />}
                   Save changes

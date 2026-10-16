@@ -43,7 +43,6 @@ interface AuthContextValue {
 
 export interface SignupInput {
   hotelName: string;
-  hotelSlug: string;
   email: string;
   password: string;
 }

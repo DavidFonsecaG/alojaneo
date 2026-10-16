@@ -23,7 +23,8 @@ describe("tenant isolation through the real API + connection pool", () => {
     expect(body.hotel).toBeDefined();
     expect(body.hotel.id).toBeDefined();
     expect(body.hotel.name).toBe(hotelName);
-    expect(body.hotel.slug).toBe(slug);
+    // The slug is derived from the name server-side (not caller-supplied).
+    expect(body.hotel.slug).toMatch(/^[a-z0-9-]+$/);
     return body.token as string;
   }
 
