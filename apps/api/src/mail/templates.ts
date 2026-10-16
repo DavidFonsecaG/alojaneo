@@ -55,6 +55,23 @@ export function loginCodeEmail(code: string): {
   };
 }
 
+export function verificationCodeEmail(code: string): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  return {
+    subject: `Verify your email · Alojaneo (${code})`,
+    html: shell(
+      `<p style="margin:0 0 4px;font-size:18px;font-weight:700;">Welcome to Alojaneo</p>
+       <p style="margin:0 0 12px;color:#6b6b6b;font-size:14px;">Enter this code to verify your email and finish creating your account:</p>
+       <div style="font-size:34px;font-weight:800;letter-spacing:8px;text-align:center;padding:16px 0;">${code}</div>
+       <p style="margin:12px 0 0;color:#6b6b6b;font-size:13px;">It expires in 10 minutes. If you didn't sign up for Alojaneo, you can ignore this email.</p>`,
+    ),
+    text: `Your Alojaneo verification code is ${code}. It expires in 10 minutes. If you didn't sign up for Alojaneo, you can ignore this email.`,
+  };
+}
+
 export function bookingConfirmationEmail(d: BookingConfirmationData): {
   subject: string;
   html: string;

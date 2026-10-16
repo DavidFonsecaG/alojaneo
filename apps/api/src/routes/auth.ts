@@ -136,7 +136,15 @@ export async function authRoutes(app: FastifyInstance) {
       passwordHash,
       codeHash,
     });
-    await getMailer().sendLoginCode(body.email, code);
+    try {
+      await getMailer().sendVerificationCode(body.email, code);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[mail] signup code failed:", (err as Error).message);
+      return reply
+        .code(502)
+        .send({ error: "Couldn't send the verification email. Please try again." });
+    }
 
     return reply.send({ challenge: "code", email: body.email, ticket });
   });
@@ -211,7 +219,15 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "User has no hotel membership" });
     }
 
-    await issueLoginCode(user.id, user.email);
+    try {
+      await issueLoginCode(user.id, user.email);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[mail] login code failed:", (err as Error).message);
+      return reply
+        .code(502)
+        .send({ error: "Couldn't send the login code. Please try again." });
+    }
     return reply.send({ challenge: "code", email: user.email });
   });
 

@@ -1,3 +1,4 @@
+import "./env.js"; // load .env before anything reads process.env
 import Fastify from "fastify";
 import { ZodError } from "zod";
 import { authRoutes } from "./routes/auth.js";
@@ -32,7 +33,8 @@ export function buildApp() {
     const status = (err as { statusCode?: number }).statusCode ?? 500;
     // Surface intentional client-error messages (e.g. 409 conflicts); keep
     // unexpected 500s generic so internals aren't leaked.
-    const message = status >= 500 ? "Server error" : (err.message ?? "Error");
+    const message =
+      status >= 500 ? "Server error" : ((err as Error).message ?? "Error");
     return reply.code(status).send({ error: message });
   });
 

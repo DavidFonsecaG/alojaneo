@@ -5,6 +5,7 @@
 import {
   bookingConfirmationEmail,
   loginCodeEmail,
+  verificationCodeEmail,
   type BookingConfirmationData,
 } from "./templates.js";
 
@@ -20,6 +21,7 @@ interface EmailMessage {
 export interface Mailer {
   readonly name: string;
   sendLoginCode(to: string, code: string): Promise<void>;
+  sendVerificationCode(to: string, code: string): Promise<void>;
   sendBookingConfirmation(
     to: string,
     data: BookingConfirmationData,
@@ -40,6 +42,13 @@ class ConsoleMailer implements Mailer {
     lastDevCodes.set(to.toLowerCase(), code);
     // eslint-disable-next-line no-console
     console.log(`\n[mail:dev] Login code for ${to}: ${code} (expires in 10 min)\n`);
+  }
+  async sendVerificationCode(to: string, code: string): Promise<void> {
+    lastDevCodes.set(to.toLowerCase(), code);
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n[mail:dev] Verification code for ${to}: ${code} (expires in 10 min)\n`,
+    );
   }
   async sendBookingConfirmation(
     to: string,
@@ -76,6 +85,9 @@ class ResendMailer implements Mailer {
 
   sendLoginCode(to: string, code: string): Promise<void> {
     return this.send({ to, ...loginCodeEmail(code) });
+  }
+  sendVerificationCode(to: string, code: string): Promise<void> {
+    return this.send({ to, ...verificationCodeEmail(code) });
   }
   sendBookingConfirmation(
     to: string,
