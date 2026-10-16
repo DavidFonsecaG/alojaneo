@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ExternalLink, ImageIcon, Palette, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
@@ -35,13 +36,25 @@ const TABS: { id: TabId; label: string }[] = [
 // header, scrolling rows). Other tabs are forms that scroll as a whole.
 const SCROLL_TABS = new Set<TabId>(["rooms", "rates"]);
 
+// The active tab lives in the URL hash (e.g. /settings#rates) so it's
+// deep-linkable and shareable. Unknown/empty hashes fall back to the first tab.
+const TAB_IDS = TABS.map((t) => t.id as string);
+function tabFromHash(hash: string): TabId {
+  const h = hash.replace(/^#/, "");
+  return (TAB_IDS.includes(h) ? h : "booking") as TabId;
+}
+
 // Property configuration, admin-only. Room/room-type setup lives here so the
 // Rooms nav page can stay a pure operations board. The API also enforces the
 // admin/manage gate, so this is defence in depth, not the only check.
 export function SettingsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
-  const [tab, setTab] = useState<TabId>("booking");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = tabFromHash(location.hash);
+  const selectTab = (id: TabId) =>
+    navigate({ hash: id }, { replace: true });
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -55,7 +68,7 @@ export function SettingsPage() {
                 <button
                   key={t.id}
                   type="button"
-                  onClick={() => setTab(t.id)}
+                  onClick={() => selectTab(t.id)}
                   className={cn(
                     "relative px-4 py-2.5 text-sm font-medium transition-colors",
                     tab === t.id

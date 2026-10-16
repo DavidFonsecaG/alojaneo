@@ -33,7 +33,7 @@ export function App() {
           {/* Rate plans moved into Settings; keep the old path working. */}
           <Route
             path="/rate-plans"
-            element={<Navigate to="/settings" replace />}
+            element={<Navigate to="/settings#rates" replace />}
           />
           <Route path="/guests" element={<GuestsPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
