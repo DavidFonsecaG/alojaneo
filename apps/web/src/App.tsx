@@ -8,7 +8,6 @@ import { NewReservationPage } from "./pages/NewReservationPage";
 import { ReservationDetailPage } from "./pages/ReservationDetailPage";
 import { TimelinePage } from "./pages/TimelinePage";
 import { RoomsPage } from "./pages/RoomsPage";
-import { RatePlansPage } from "./pages/RatePlansPage";
 import { GuestsPage } from "./pages/GuestsPage";
 import { PaymentsPage } from "./pages/PaymentsPage";
 import { HousekeepingPage } from "./pages/HousekeepingPage";
@@ -31,7 +30,11 @@ export function App() {
           />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/rooms" element={<RoomsPage />} />
-          <Route path="/rate-plans" element={<RatePlansPage />} />
+          {/* Rate plans moved into Settings; keep the old path working. */}
+          <Route
+            path="/rate-plans"
+            element={<Navigate to="/settings" replace />}
+          />
           <Route path="/guests" element={<GuestsPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/housekeeping" element={<HousekeepingPage />} />

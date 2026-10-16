@@ -10,6 +10,7 @@ import { useHotelProfile, useUpdateHotelProfile } from "../lib/setup";
 import { DepositSettings } from "../components/DepositSettings";
 import { UsersSettings } from "../components/UsersSettings";
 import { RoomsSetup } from "./RoomsPage";
+import { RatePlansSetup } from "./RatePlansPage";
 
 const BOOKING_URL =
   import.meta.env.VITE_BOOKING_URL || "http://localhost:5174";
@@ -20,14 +21,19 @@ const DEFAULT_ACCENT = "#171717";
 const DEFAULT_POSITION = 50;
 const MAX_BANNER_BYTES = 4 * 1024 * 1024;
 
-type TabId = "booking" | "deposits" | "rooms" | "users";
+type TabId = "booking" | "deposits" | "rooms" | "rates" | "users";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "booking", label: "Booking engine" },
   { id: "deposits", label: "Deposits" },
   { id: "rooms", label: "Rooms" },
+  { id: "rates", label: "Rate plans" },
   { id: "users", label: "Users" },
 ];
+
+// Tabs whose content manages its own full-height internal scroll (sticky
+// header, scrolling rows). Other tabs are forms that scroll as a whole.
+const SCROLL_TABS = new Set<TabId>(["rooms", "rates"]);
 
 // Property configuration, admin-only. Room/room-type setup lives here so the
 // Rooms nav page can stay a pure operations board. The API also enforces the
@@ -66,17 +72,16 @@ export function SettingsPage() {
             </nav>
           </div>
 
-          {/* The Rooms tab manages its own full-height scroll (sticky header,
-              scrolling rows); the other tabs are forms that scroll as a whole. */}
           <div
             className={cn(
               "min-h-0 flex-1",
-              tab === "rooms" ? "flex flex-col" : "overflow-y-auto",
+              SCROLL_TABS.has(tab) ? "flex flex-col" : "overflow-y-auto",
             )}
           >
             {tab === "booking" && <BrandingSettings />}
             {tab === "deposits" && <DepositSettings />}
             {tab === "rooms" && <RoomsSetup />}
+            {tab === "rates" && <RatePlansSetup />}
             {tab === "users" && <UsersSettings />}
           </div>
         </>

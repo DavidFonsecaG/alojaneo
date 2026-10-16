@@ -1,6 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Plus, Pencil, Trash2, Tags, Search } from "lucide-react";
-import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
@@ -40,7 +39,9 @@ const ONLINE_FILTERS: { value: string; label: string; dot?: string }[] = [
   { value: "offline", label: "Offline", dot: "bg-slate-400" },
 ];
 
-export function RatePlansPage() {
+// Rate-plan management. Lives under Settings (property configuration) rather
+// than the operations nav, alongside Rooms & room types.
+export function RatePlansSetup() {
   const ratePlans = useRatePlans();
   const roomTypes = useRoomTypes();
   const [formOpen, setFormOpen] = useState(false);
@@ -69,25 +70,26 @@ export function RatePlansPage() {
   const hasFilters = query !== "" || online !== "";
 
   return (
-    // Same shell as the Reservations/Calendar pages: header on the canvas,
-    // only the content card scrolls.
-    <div className="flex h-full flex-col gap-3">
-      <PageHeader
-        title="Rate plans"
-        description="Pricing plans per room type"
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-            disabled={!hasTypes}
-          >
-            <Plus className="h-4 w-4" />
-            Add rate plan
-          </Button>
-        }
-      />
+    // Full-height so the content card scrolls internally within the tab.
+    <div className="flex h-full flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Rate plans</h2>
+          <p className="text-sm text-muted-foreground">
+            Pricing plans per room type
+          </p>
+        </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setFormOpen(true);
+          }}
+          disabled={!hasTypes}
+        >
+          <Plus className="h-4 w-4" />
+          Add rate plan
+        </Button>
+      </div>
 
       {ratePlans.isLoading ? (
         <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-card">
