@@ -6,14 +6,12 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
-import { Check, Eye, EyeOff, Mail } from "lucide-react";
+import { Check, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { ApiError } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input, Label } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
-import { cn } from "../lib/utils";
-import calendarPreview from "../assets/calendar-preview.png";
 
 type Mode = "login" | "signup";
 
@@ -22,9 +20,9 @@ interface LocationState {
 }
 
 const HIGHLIGHTS = [
-  "Double-bookings blocked at the database — never oversell",
-  "Your own direct booking engine, branded to your hotel",
-  "Reservations, housekeeping, rates & payments in one place",
+  "No double-booking",
+  "Direct booking engine",
+  "Housekeeping & payments",
 ];
 
 // The hexagon brand mark used in the app sidebar.
@@ -186,32 +184,42 @@ export function LoginPage() {
     setError(null);
   }
 
-  return (
-    <div className="min-h-screen bg-background lg:grid lg:grid-cols-2">
-      {/* ── Left: form ─────────────────────────────────────────────── */}
-      <div className="relative flex min-h-screen flex-col justify-center px-6 py-14 sm:px-12 lg:px-16">
-        {/* Brand mark, top-left */}
-        <div className="absolute left-6 top-8 flex items-center gap-2 sm:left-12 lg:left-16">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-neutral-900 text-white">
-            <BrandMark className="h-5 w-5" />
-          </span>
-          <span className="text-lg font-semibold">Alojaneo</span>
-        </div>
+  const heading = codeStep
+    ? "Check your email"
+    : isSignup
+      ? "Get started now"
+      : "Welcome back";
 
-        <div className="mx-auto w-full max-w-sm animate-fade-in">
-          {codeStep && (
-            <span className="mb-5 flex size-12 items-center justify-center rounded-2xl bg-neutral-900 text-white">
-              <Mail className="h-5 w-5" />
+  return (
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-neutral-950 px-4 py-12">
+      {/* Ambient background — layered glows + a fine dot grid */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(255,255,255,0.14),transparent_55%)]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_100%,rgba(255,255,255,0.07),transparent_45%)]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-50 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px]"
+      />
+
+      <div className="relative z-10 w-full max-w-md animate-fade-in">
+        <div className="rounded-3xl bg-card p-8 shadow-2xl ring-1 ring-black/5 sm:p-10">
+          {/* Brand lockup */}
+          <div className="flex items-center justify-center gap-2">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-neutral-900 text-white">
+              <BrandMark className="h-5 w-5" />
             </span>
-          )}
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {codeStep
-              ? "Check your email"
-              : isSignup
-                ? "Get started now"
-                : "Welcome back"}
+            <span className="text-lg font-semibold">Alojaneo</span>
+          </div>
+
+          <h1 className="mt-7 text-center text-2xl font-semibold tracking-tight">
+            {heading}
           </h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+          <p className="mt-1.5 text-center text-sm text-muted-foreground">
             {codeStep ? (
               <>
                 Enter the 6-digit code we sent to{" "}
@@ -220,11 +228,11 @@ export function LoginPage() {
             ) : isSignup ? (
               "Create your hotel account to get going."
             ) : (
-              "Enter your credentials to access your dashboard."
+              "Sign in to your dashboard."
             )}
           </p>
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
+          <form onSubmit={onSubmit} className="mt-7 space-y-4">
             {codeStep && (
               <div className="space-y-2">
                 <Label htmlFor="code">Verification code</Label>
@@ -280,7 +288,14 @@ export function LoginPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="password">Password</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    {!isSignup && (
+                      <span className="text-xs text-muted-foreground">
+                        We'll email a sign-in code
+                      </span>
+                    )}
+                  </div>
                   <div className="relative">
                     <Input
                       id="password"
@@ -331,7 +346,7 @@ export function LoginPage() {
                 ? "Verify & sign in"
                 : isSignup
                   ? "Create account"
-                  : "Sign in"}
+                  : "Continue"}
             </Button>
 
             {codeStep && (
@@ -346,7 +361,7 @@ export function LoginPage() {
           </form>
 
           {!codeStep && (
-            <p className="mt-6 text-sm text-muted-foreground">
+            <p className="mt-6 text-center text-sm text-muted-foreground">
               {isSignup ? "Have an account?" : "Don't have an account?"}{" "}
               <button
                 type="button"
@@ -359,61 +374,21 @@ export function LoginPage() {
           )}
         </div>
 
-        <p className="absolute inset-x-0 bottom-6 text-center text-xs text-muted-foreground">
+        {/* Product highlights + footer */}
+        {!codeStep && (
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-white/55">
+            {HIGHLIGHTS.map((h) => (
+              <span key={h} className="flex items-center gap-1.5">
+                <Check className="h-3 w-3 text-white/40" />
+                {h}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <p className="mt-6 text-center text-xs text-white/35">
           © {new Date().getFullYear()} Alojaneo. All rights reserved.
         </p>
-      </div>
-
-      {/* ── Right: brand panel (desktop only) ──────────────────────── */}
-      <div className="hidden p-3 lg:block">
-        <div className="relative flex h-full flex-col overflow-hidden rounded-3xl bg-neutral-950 p-12 text-white">
-          {/* Ambient glow + fine dot grid for depth */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,rgba(255,255,255,0.12),transparent_55%)]"
-          />
-          <div
-            aria-hidden
-            className={cn(
-              "pointer-events-none absolute inset-0 opacity-[0.6]",
-              "bg-[radial-gradient(rgba(255,255,255,0.055)_1px,transparent_1px)] [background-size:22px_22px]",
-            )}
-          />
-
-          <div className="relative z-10 max-w-md">
-            <h2 className="text-4xl font-semibold leading-tight tracking-tight">
-              The simplest way to run your hotel
-            </h2>
-            <p className="mt-4 text-white/60">
-              Reservations, housekeeping, rates and a direct booking engine —
-              all in one place.
-            </p>
-
-            <ul className="mt-8 space-y-3.5">
-              {HIGHLIGHTS.map((h) => (
-                <li key={h} className="flex items-start gap-3 text-sm text-white/80">
-                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-white/10 ring-1 ring-inset ring-white/15">
-                    <Check className="h-3 w-3" />
-                  </span>
-                  {h}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Real calendar screenshot, framed and peeking up from the bottom */}
-          <div className="relative z-10 mt-12 flex-1">
-            <div
-              aria-hidden
-              className="absolute left-1/2 top-4 h-40 w-[90%] -translate-x-1/2 rounded-full bg-white/10 blur-3xl"
-            />
-            <img
-              src={calendarPreview}
-              alt="The Alojaneo calendar"
-              className="absolute left-1/2 top-0 w-[112%] max-w-none -translate-x-1/2 rounded-2xl ring-1 ring-white/10 shadow-2xl"
-            />
-          </div>
-        </div>
       </div>
     </div>
   );
