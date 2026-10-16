@@ -191,23 +191,20 @@ export function LoginPage() {
       : "Welcome back";
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-neutral-950 px-4 py-12">
-      {/* Ambient background — layered glows + a fine dot grid */}
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-neutral-100 px-4 py-12">
+      {/* Light, airy backdrop — a soft spotlight behind the card over a faint
+          dot grid for a little texture. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(255,255,255,0.14),transparent_55%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,#ffffff,transparent_62%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_100%,rgba(255,255,255,0.07),transparent_45%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-50 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px]"
+        className="pointer-events-none absolute inset-0 opacity-70 bg-[radial-gradient(rgba(16,24,40,0.045)_1px,transparent_1px)] [background-size:24px_24px]"
       />
 
       <div className="relative z-10 w-full max-w-md animate-fade-in">
-        <div className="rounded-3xl bg-card p-8 shadow-2xl ring-1 ring-black/5 sm:p-10">
+        <div className="rounded-3xl bg-card p-8 shadow-xl ring-1 ring-black/5 sm:p-10">
           {/* Brand lockup */}
           <div className="flex items-center justify-center gap-2">
             <span className="flex size-9 items-center justify-center rounded-xl bg-neutral-900 text-white">
@@ -376,17 +373,17 @@ export function LoginPage() {
 
         {/* Product highlights + footer */}
         {!codeStep && (
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-white/55">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
             {HIGHLIGHTS.map((h) => (
               <span key={h} className="flex items-center gap-1.5">
-                <Check className="h-3 w-3 text-white/40" />
+                <Check className="h-3 w-3 text-muted-foreground/60" />
                 {h}
               </span>
             ))}
           </div>
         )}
 
-        <p className="mt-6 text-center text-xs text-white/35">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} Alojaneo. All rights reserved.
         </p>
       </div>
