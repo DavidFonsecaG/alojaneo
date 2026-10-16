@@ -191,16 +191,16 @@ export function LoginPage() {
       : "Welcome back";
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-neutral-100 px-4 py-12">
-      {/* Light, airy backdrop — a soft spotlight behind the card over a faint
-          dot grid for a little texture. */}
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-neutral-200 px-4 py-12">
+      {/* Light, airy backdrop — a bright spotlight behind the card fading to a
+          soft neutral at the edges, over a faint dot grid for texture. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,#ffffff,transparent_62%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_34%,#ffffff_0%,rgba(255,255,255,0.6)_30%,transparent_62%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-70 bg-[radial-gradient(rgba(16,24,40,0.045)_1px,transparent_1px)] [background-size:24px_24px]"
+        className="pointer-events-none absolute inset-0 opacity-60 bg-[radial-gradient(rgba(16,24,40,0.05)_1px,transparent_1px)] [background-size:22px_22px]"
       />
 
       <div className="relative z-10 w-full max-w-md animate-fade-in">
