@@ -177,10 +177,10 @@ export function Layout() {
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Top bar — doubles as the page header: the current page's title +
             actions are portalled into the left slot; the bell stays top-right. */}
-        <header className="flex h-14 shrink-0 items-center gap-3 pl-5 pr-3">
+        <header className="flex min-h-[4.75rem] shrink-0 items-center gap-3 py-3 pl-5 pr-3">
           <div
             ref={setBarSlot}
-            className="flex min-w-0 flex-1 items-center justify-between gap-3"
+            className="flex min-w-0 flex-1 items-center justify-between gap-4"
           />
           <NotificationsBell />
         </header>
@@ -195,11 +195,12 @@ export function Layout() {
 }
 
 // Each page declares its header here; it renders into the top bar (see
-// PageBarContext) rather than as a heading in the page body. `description` is
-// still accepted so pages don't need changing, but it isn't shown in the
-// compact bar. Returns null until the bar slot exists (first paint).
+// PageBarContext) rather than as a heading in the page body — same full-size
+// title + subtitle as before, now sharing the row with the notifications bell.
+// Returns null until the bar slot exists (first paint).
 export function PageHeader({
   title,
+  description,
   actions,
 }: {
   title: string;
@@ -210,9 +211,16 @@ export function PageHeader({
   if (!slot) return null;
   return createPortal(
     <>
-      <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight">
-        {title}
-      </h1>
+      <div className="min-w-0">
+        <h1 className="truncate text-3xl font-semibold tracking-tight">
+          {title}
+        </h1>
+        {description && (
+          <p className="mt-1 truncate text-sm text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
       {actions && (
         <div className="flex shrink-0 items-center gap-2">{actions}</div>
       )}
