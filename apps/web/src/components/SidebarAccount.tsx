@@ -249,8 +249,8 @@ export function NotificationsBell({
             toggle();
           }}
           className={cn(
-            "relative flex size-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-            open && "bg-accent text-foreground",
+            "relative flex size-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-neutral-200 hover:text-foreground",
+            open && "bg-neutral-200 text-foreground",
           )}
         >
           <Bell className="h-[18px] w-[18px]" />
