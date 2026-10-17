@@ -28,18 +28,25 @@ export function Dropdown({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState<{ left: number; bottom: number } | null>(
-    null,
-  );
+  const [coords, setCoords] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
 
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return;
     const r = triggerRef.current.getBoundingClientRect();
     const rawLeft = align === "right" ? r.right - width : r.left;
-    setCoords({
-      left: Math.max(8, Math.min(rawLeft, window.innerWidth - width - 8)),
-      bottom: window.innerHeight - r.top + 8,
-    });
+    const left = Math.max(8, Math.min(rawLeft, window.innerWidth - width - 8));
+    // Open upward from triggers low on screen (e.g. the sidebar footer),
+    // downward from triggers up top (e.g. a top bar).
+    const openUp = r.top > window.innerHeight * 0.55;
+    setCoords(
+      openUp
+        ? { left, bottom: window.innerHeight - r.top + 8 }
+        : { left, top: r.bottom + 8 },
+    );
   }, [open, align, width]);
 
   useEffect(() => {
@@ -74,7 +81,9 @@ export function Dropdown({
             style={{
               position: "fixed",
               left: coords.left,
-              bottom: coords.bottom,
+              ...(coords.top != null
+                ? { top: coords.top }
+                : { bottom: coords.bottom }),
               width,
             }}
             className="z-50 animate-fade-in rounded-xl bg-card p-1 shadow-xl ring-1 ring-black/10"

@@ -163,22 +163,18 @@ export function Layout() {
         </nav>
 
         <div className="p-3">
-          {collapsed ? (
-            <div className="flex flex-col items-center gap-1">
-              <AccountMenu collapsed />
-              <NotificationsBell collapsed />
-            </div>
-          ) : (
-            <div className="flex items-center gap-1">
-              <AccountMenu collapsed={false} />
-              <NotificationsBell collapsed={false} />
-            </div>
-          )}
+          <AccountMenu collapsed={collapsed} />
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 py-3">
-        <Outlet />
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Top bar — notifications live top-right, the conventional spot. */}
+        <header className="flex h-12 shrink-0 items-center justify-end px-3">
+          <NotificationsBell />
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 pb-3">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

@@ -189,7 +189,11 @@ function relTime(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-export function NotificationsBell({ collapsed }: { collapsed: boolean }) {
+export function NotificationsBell({
+  collapsed = false,
+}: {
+  collapsed?: boolean;
+}) {
   const dash = useDashboard();
   const notices = useMemo(() => buildNotices(dash.data), [dash.data]);
   const [seenAt, setSeenAt] = useState<number>(() => {
