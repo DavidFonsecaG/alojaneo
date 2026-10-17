@@ -37,24 +37,6 @@ function slugify(name: string): string {
     .slice(0, 48);
 }
 
-// The hexagon brand mark used in the app sidebar.
-function BrandMark({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-    </svg>
-  );
-}
-
 // Segmented 6-digit code input with auto-advance, backspace, arrows and paste.
 function OtpInput({
   value,
@@ -269,9 +251,11 @@ export function LoginPage() {
         <div className="rounded-3xl bg-card p-8 shadow-xl ring-1 ring-black/5 sm:p-10">
           {/* Brand lockup */}
           <div className="flex items-center justify-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-neutral-900 text-white">
-              <BrandMark className="h-5 w-5" />
-            </span>
+            <img
+              src="/alojaneo-icon.svg"
+              alt=""
+              className="size-9 rounded-xl"
+            />
             <span className="text-lg font-semibold">Alojaneo</span>
           </div>
 

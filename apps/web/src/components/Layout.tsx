@@ -67,20 +67,11 @@ export function Layout() {
         {/* Brand — the logo stays pinned left; the wordmark fades out. */}
         <div className="flex h-16 items-center px-3">
           <Link to="/" className="flex items-center gap-2.5 overflow-hidden">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white">
-              <svg
-                viewBox="0 0 24 24"
-                className="h-5 w-5"
-                fill="currentColor"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              </svg>
-            </span>
+            <img
+              src="/alojaneo-icon.svg"
+              alt=""
+              className="size-10 shrink-0 rounded-xl"
+            />
             <span
               className={cn(
                 "whitespace-nowrap text-lg font-semibold transition-opacity duration-200",
