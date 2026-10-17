@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -35,8 +36,14 @@ const NAV: NavItem[] = [
   { to: "/settings", label: "Settings", icon: Settings, enabled: true, adminOnly: true },
 ];
 
+// The top bar is the page header: each page's <PageHeader> portals its title
+// (and action buttons) into this slot, so the title sits on the same row as the
+// notifications bell instead of being repeated as a large heading in the body.
+const PageBarContext = createContext<HTMLElement | null>(null);
+
 export function Layout() {
   const { user } = useAuth();
+  const [barSlot, setBarSlot] = useState<HTMLDivElement | null>(null);
 
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("alojaneo.sidebar") === "collapsed",
@@ -168,37 +175,48 @@ export function Layout() {
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* Top bar — notifications live top-right, the conventional spot. */}
-        <header className="flex h-12 shrink-0 items-center justify-end px-3">
+        {/* Top bar — doubles as the page header: the current page's title +
+            actions are portalled into the left slot; the bell stays top-right. */}
+        <header className="flex h-14 shrink-0 items-center gap-3 pl-5 pr-3">
+          <div
+            ref={setBarSlot}
+            className="flex min-w-0 flex-1 items-center justify-between gap-3"
+          />
           <NotificationsBell />
         </header>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 pb-3">
-          <Outlet />
-        </div>
+        <PageBarContext.Provider value={barSlot}>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 pb-3">
+            <Outlet />
+          </div>
+        </PageBarContext.Provider>
       </main>
     </div>
   );
 }
 
+// Each page declares its header here; it renders into the top bar (see
+// PageBarContext) rather than as a heading in the page body. `description` is
+// still accepted so pages don't need changing, but it isn't shown in the
+// compact bar. Returns null until the bar slot exists (first paint).
 export function PageHeader({
   title,
-  description,
   actions,
 }: {
   title: string;
   description?: string;
   actions?: React.ReactNode;
 }) {
-  return (
-    // Header sits directly on the canvas (no card), matching the Timeline page.
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-        {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        )}
-      </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
-    </div>
+  const slot = useContext(PageBarContext);
+  if (!slot) return null;
+  return createPortal(
+    <>
+      <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight">
+        {title}
+      </h1>
+      {actions && (
+        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+      )}
+    </>,
+    slot,
   );
 }

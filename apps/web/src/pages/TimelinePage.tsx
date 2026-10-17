@@ -12,6 +12,7 @@ import {
 import { Button } from "../components/ui/button";
 import { Input, Select } from "../components/ui/input";
 import { CenteredSpinner } from "../components/ui/spinner";
+import { PageHeader } from "../components/Layout";
 import { useRooms } from "../lib/setup";
 import { useTimeline } from "../lib/reservations";
 import { parseApiDate, toApiDate } from "../lib/format";
@@ -238,13 +239,10 @@ export function TimelinePage() {
 
   return (
     <div className="flex h-full flex-col gap-3">
-      {/* Title sits directly on the canvas, not in a card */}
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Calendar</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Rooms down the side, stays across the days
-        </p>
-      </div>
+      <PageHeader
+        title="Calendar"
+        description="Rooms down the side, stays across the days"
+      />
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center rounded-3xl bg-card shadow-card">
