@@ -74,6 +74,20 @@ export function useMe() {
   });
 }
 
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
+// Self-service password change for the signed-in user. Not cached, so it's a
+// plain mutation (nothing to invalidate — the session token is unchanged).
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (input: ChangePasswordInput) =>
+      api.patch<{ ok: true }>("/me/password", input),
+  });
+}
+
 // ── Hotel settings (deposit policy, taxes) ──────────────────────────
 export function useHotelSettings() {
   return useQuery({

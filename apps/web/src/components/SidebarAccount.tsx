@@ -6,12 +6,15 @@ import {
   ExternalLink,
   LogOut,
   Settings,
+  UserCog,
   Users,
 } from "lucide-react";
 import { Dropdown, MenuItem, MenuSeparator } from "./ui/dropdown";
+import { UserSettingsModal } from "./UserSettingsModal";
 import { useAuth } from "../lib/auth";
 import { useMe } from "../lib/setup";
 import { useDashboard } from "../lib/dashboard";
+import { useUiPrefs } from "../lib/prefs";
 import { cn } from "../lib/utils";
 import type { DashboardData } from "../types";
 
@@ -33,11 +36,13 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
   const { user, logout } = useAuth();
   const me = useMe();
   const navigate = useNavigate();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const isAdmin = user?.role === "admin";
   const email = me.data?.email ?? "";
   const avatar = email ? initials(email) : "··";
 
   return (
+    <>
     <Dropdown
       width={collapsed ? 240 : "trigger"}
       triggerClassName={collapsed ? "" : "w-full"}
@@ -82,6 +87,15 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
             </div>
           </div>
           <MenuSeparator />
+          <MenuItem
+            icon={<UserCog className="h-4 w-4" />}
+            onClick={() => {
+              close();
+              setSettingsOpen(true);
+            }}
+          >
+            Account settings
+          </MenuItem>
           {me.data?.hotelSlug && (
             <MenuItem
               icon={<ExternalLink className="h-4 w-4" />}
@@ -133,6 +147,11 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
         </>
       )}
     </Dropdown>
+    <UserSettingsModal
+      open={settingsOpen}
+      onClose={() => setSettingsOpen(false)}
+    />
+    </>
   );
 }
 
@@ -195,12 +214,17 @@ export function NotificationsBell({
   collapsed?: boolean;
 }) {
   const dash = useDashboard();
+  const prefs = useUiPrefs();
   const notices = useMemo(() => buildNotices(dash.data), [dash.data]);
   const [seenAt, setSeenAt] = useState<number>(() => {
     const raw = localStorage.getItem(SEEN_KEY);
     return raw ? Number(raw) : 0;
   });
-  const unread = notices.filter((n) => new Date(n.at).getTime() > seenAt).length;
+  const unreadCount = notices.filter(
+    (n) => new Date(n.at).getTime() > seenAt,
+  ).length;
+  // The badge is a per-browser preference; hide the count when it's off.
+  const unread = prefs.notifBadge ? unreadCount : 0;
 
   function markSeen() {
     const now = Date.now();
