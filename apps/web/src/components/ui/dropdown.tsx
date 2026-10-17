@@ -22,7 +22,8 @@ export function Dropdown({
   trigger: (args: { open: boolean; toggle: () => void }) => ReactNode;
   children: (close: () => void) => ReactNode;
   triggerClassName?: string;
-  width?: number;
+  // A number, or "trigger" to match the trigger's width (fills the sidebar).
+  width?: number | "trigger";
   align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
@@ -30,6 +31,7 @@ export function Dropdown({
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{
     left: number;
+    width: number;
     top?: number;
     bottom?: number;
   } | null>(null);
@@ -37,15 +39,16 @@ export function Dropdown({
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return;
     const r = triggerRef.current.getBoundingClientRect();
-    const rawLeft = align === "right" ? r.right - width : r.left;
-    const left = Math.max(8, Math.min(rawLeft, window.innerWidth - width - 8));
+    const w = width === "trigger" ? r.width : width;
+    const rawLeft = align === "right" ? r.right - w : r.left;
+    const left = Math.max(8, Math.min(rawLeft, window.innerWidth - w - 8));
     // Open upward from triggers low on screen (e.g. the sidebar footer),
     // downward from triggers up top (e.g. a top bar).
     const openUp = r.top > window.innerHeight * 0.55;
     setCoords(
       openUp
-        ? { left, bottom: window.innerHeight - r.top + 8 }
-        : { left, top: r.bottom + 8 },
+        ? { left, width: w, bottom: window.innerHeight - r.top + 8 }
+        : { left, width: w, top: r.bottom + 8 },
     );
   }, [open, align, width]);
 
@@ -84,7 +87,7 @@ export function Dropdown({
               ...(coords.top != null
                 ? { top: coords.top }
                 : { bottom: coords.bottom }),
-              width,
+              width: coords.width,
             }}
             className="z-50 animate-fade-in rounded-xl bg-card p-1 shadow-xl ring-1 ring-black/10"
           >

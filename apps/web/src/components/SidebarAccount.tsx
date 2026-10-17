@@ -39,8 +39,8 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
 
   return (
     <Dropdown
-      width={260}
-      triggerClassName={collapsed ? "" : "min-w-0 flex-1"}
+      width={collapsed ? 240 : "trigger"}
+      triggerClassName={collapsed ? "" : "w-full"}
       trigger={({ toggle, open }) => (
         <button
           type="button"

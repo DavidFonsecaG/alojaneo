@@ -54,7 +54,7 @@ export function Layout() {
       <aside
         className={cn(
           "flex shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-in-out",
-          collapsed ? "w-16" : "w-52",
+          collapsed ? "w-16" : "w-60",
         )}
       >
         {/* Brand — the logo stays pinned left; the wordmark fades out. */}
