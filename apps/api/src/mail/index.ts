@@ -5,6 +5,7 @@
 import {
   bookingConfirmationEmail,
   loginCodeEmail,
+  passwordResetEmail,
   verificationCodeEmail,
   type BookingConfirmationData,
 } from "./templates.js";
@@ -22,6 +23,7 @@ export interface Mailer {
   readonly name: string;
   sendLoginCode(to: string, code: string): Promise<void>;
   sendVerificationCode(to: string, code: string): Promise<void>;
+  sendPasswordResetCode(to: string, code: string): Promise<void>;
   sendBookingConfirmation(
     to: string,
     data: BookingConfirmationData,
@@ -48,6 +50,13 @@ class ConsoleMailer implements Mailer {
     // eslint-disable-next-line no-console
     console.log(
       `\n[mail:dev] Verification code for ${to}: ${code} (expires in 10 min)\n`,
+    );
+  }
+  async sendPasswordResetCode(to: string, code: string): Promise<void> {
+    lastDevCodes.set(to.toLowerCase(), code);
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n[mail:dev] Password reset code for ${to}: ${code} (expires in 10 min)\n`,
     );
   }
   async sendBookingConfirmation(
@@ -89,6 +98,9 @@ class ResendMailer implements Mailer {
   sendVerificationCode(to: string, code: string): Promise<void> {
     return this.send({ to, ...verificationCodeEmail(code) });
   }
+  sendPasswordResetCode(to: string, code: string): Promise<void> {
+    return this.send({ to, ...passwordResetEmail(code) });
+  }
   sendBookingConfirmation(
     to: string,
     data: BookingConfirmationData,
@@ -128,6 +140,10 @@ class DevTeeMailer implements Mailer {
   async sendVerificationCode(to: string, code: string): Promise<void> {
     this.logCode("Verification code", to, code);
     await this.tee(this.inner.sendVerificationCode(to, code));
+  }
+  async sendPasswordResetCode(to: string, code: string): Promise<void> {
+    this.logCode("Password reset code", to, code);
+    await this.tee(this.inner.sendPasswordResetCode(to, code));
   }
   sendBookingConfirmation(
     to: string,

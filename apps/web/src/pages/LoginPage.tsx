@@ -13,7 +13,7 @@ import { Button } from "../components/ui/button";
 import { Input, Label } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
 
-type Mode = "login" | "signup";
+type Mode = "login" | "signup" | "reset";
 
 interface LocationState {
   from?: { pathname: string };
@@ -131,8 +131,15 @@ function OtpInput({
 }
 
 export function LoginPage() {
-  const { isAuthenticated, login, verifyCode, signup, signupVerify } =
-    useAuth();
+  const {
+    isAuthenticated,
+    login,
+    verifyCode,
+    signup,
+    signupVerify,
+    forgotPassword,
+    resetPassword,
+  } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mode, setMode] = useState<Mode>("login");
@@ -144,6 +151,7 @@ export function LoginPage() {
   // Form fields
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [code, setCode] = useState("");
   const [hotelName, setHotelName] = useState("");
   const [ticket, setTicket] = useState("");
@@ -156,6 +164,7 @@ export function LoginPage() {
   }
 
   const isSignup = mode === "signup";
+  const isReset = mode === "reset";
   const codeStep = step === "code";
 
   async function onSubmit(e: FormEvent) {
@@ -163,7 +172,17 @@ export function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      if (isSignup && step === "credentials") {
+      if (isReset && step === "credentials") {
+        // Step 1: email a reset code (always the same response — no probing).
+        const res = await forgotPassword(email);
+        setEmail(res.email);
+        setCode("");
+        setStep("code");
+      } else if (isReset) {
+        // Step 2: confirm the code, set the new password, and sign in.
+        await resetPassword(email, code, newPassword);
+        navigate(redirectTo, { replace: true });
+      } else if (isSignup && step === "credentials") {
         // Step 1: email a verification code, then move to the code step.
         const res = await signup({ hotelName, email, password });
         setEmail(res.email);
@@ -200,18 +219,38 @@ export function LoginPage() {
     setError(null);
   }
 
+  function startReset() {
+    setMode("reset");
+    setStep("credentials");
+    setPassword("");
+    setNewPassword("");
+    setCode("");
+    setError(null);
+  }
+
+  function backToLogin() {
+    setMode("login");
+    setStep("credentials");
+    setCode("");
+    setNewPassword("");
+    setError(null);
+  }
+
   function backToCredentials() {
     setStep("credentials");
     setCode("");
     setTicket("");
+    setNewPassword("");
     setError(null);
   }
 
   const heading = codeStep
     ? "Check your email"
-    : isSignup
-      ? "Get started now"
-      : "Welcome back";
+    : isReset
+      ? "Reset your password"
+      : isSignup
+        ? "Get started now"
+        : "Welcome back";
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-neutral-200 px-4 py-12">
@@ -243,8 +282,11 @@ export function LoginPage() {
             {codeStep ? (
               <>
                 Enter the 6-digit code we sent to{" "}
-                <span className="font-medium text-foreground">{email}</span>.
+                <span className="font-medium text-foreground">{email}</span>
+                {isReset ? " and choose a new password." : "."}
               </>
+            ) : isReset ? (
+              "Enter your account email and we'll send a reset code."
             ) : isSignup ? (
               "Create your hotel account to get going."
             ) : (
@@ -254,10 +296,50 @@ export function LoginPage() {
 
           <form onSubmit={onSubmit} className="mt-7 space-y-4">
             {codeStep && (
-              <div className="space-y-2">
-                <Label htmlFor="code">Verification code</Label>
-                <OtpInput value={code} onChange={setCode} disabled={submitting} />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="code">
+                    {isReset ? "Reset code" : "Verification code"}
+                  </Label>
+                  <OtpInput
+                    value={code}
+                    onChange={setCode}
+                    disabled={submitting}
+                  />
+                </div>
+                {isReset && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newPassword">New password</Label>
+                    <div className="relative">
+                      <Input
+                        id="newPassword"
+                        type={showPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="min 8 chars"
+                        autoComplete="new-password"
+                        minLength={8}
+                        required
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((s) => !s)}
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
+                        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
             {!codeStep && isSignup && (
               <div className="space-y-1.5">
@@ -295,45 +377,51 @@ export function LoginPage() {
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    {!isSignup && (
-                      <span className="text-xs text-muted-foreground">
-                        We'll email a sign-in code
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder={isSignup ? "min 8 chars" : "••••••••"}
-                      autoComplete={
-                        isSignup ? "new-password" : "current-password"
-                      }
-                      minLength={isSignup ? 8 : undefined}
-                      required
-                      className="pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((s) => !s)}
-                      aria-label={
-                        showPassword ? "Hide password" : "Show password"
-                      }
-                      className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
+                {!isReset && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password">Password</Label>
+                      {!isSignup && (
+                        <button
+                          type="button"
+                          onClick={startReset}
+                          className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                          Forgot password?
+                        </button>
                       )}
-                    </button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder={isSignup ? "min 8 chars" : "••••••••"}
+                        autoComplete={
+                          isSignup ? "new-password" : "current-password"
+                        }
+                        minLength={isSignup ? 8 : undefined}
+                        required
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((s) => !s)}
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
+                        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
 
@@ -347,16 +435,24 @@ export function LoginPage() {
               type="submit"
               size="lg"
               className="w-full"
-              disabled={submitting || (codeStep && code.length !== 6)}
+              disabled={
+                submitting ||
+                (codeStep && code.length !== 6) ||
+                (isReset && codeStep && newPassword.trim().length < 8)
+              }
             >
               {submitting && <Spinner />}
               {codeStep
-                ? isSignup
-                  ? "Verify & create account"
-                  : "Verify & sign in"
-                : isSignup
-                  ? "Create account"
-                  : "Continue"}
+                ? isReset
+                  ? "Reset password"
+                  : isSignup
+                    ? "Verify & create account"
+                    : "Verify & sign in"
+                : isReset
+                  ? "Send reset code"
+                  : isSignup
+                    ? "Create account"
+                    : "Continue"}
             </Button>
 
             {codeStep && (
@@ -370,22 +466,34 @@ export function LoginPage() {
             )}
           </form>
 
-          {!codeStep && (
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              {isSignup ? "Have an account?" : "Don't have an account?"}{" "}
-              <button
-                type="button"
-                className="font-medium text-foreground hover:underline"
-                onClick={switchMode}
-              >
-                {isSignup ? "Sign in" : "Sign up"}
-              </button>
-            </p>
-          )}
+          {!codeStep &&
+            (isReset ? (
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                Remembered it?{" "}
+                <button
+                  type="button"
+                  className="font-medium text-foreground hover:underline"
+                  onClick={backToLogin}
+                >
+                  Back to sign in
+                </button>
+              </p>
+            ) : (
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                {isSignup ? "Have an account?" : "Don't have an account?"}{" "}
+                <button
+                  type="button"
+                  className="font-medium text-foreground hover:underline"
+                  onClick={switchMode}
+                >
+                  {isSignup ? "Sign in" : "Sign up"}
+                </button>
+              </p>
+            ))}
         </div>
 
         {/* Product highlights + footer */}
-        {!codeStep && (
+        {!codeStep && !isReset && (
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
             {HIGHLIGHTS.map((h) => (
               <span key={h} className="flex items-center gap-1.5">

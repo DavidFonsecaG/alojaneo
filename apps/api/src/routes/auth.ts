@@ -9,7 +9,11 @@ import {
   signSignupTicket,
   verifySignupTicket,
 } from "../lib/auth.js";
-import { consumeLoginCode, issueLoginCode } from "../lib/loginCode.js";
+import {
+  consumeLoginCode,
+  issueLoginCode,
+  issueResetCode,
+} from "../lib/loginCode.js";
 import { getMailer } from "../mail/index.js";
 
 const signupSchema = z.object({
@@ -45,6 +49,16 @@ const verifyCodeSchema = z.object({
 const signupVerifySchema = z.object({
   ticket: z.string().min(1),
   code: z.string().regex(/^\d{6}$/, "code must be 6 digits"),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().email(),
+  code: z.string().regex(/^\d{6}$/, "code must be 6 digits"),
+  newPassword: z.string().min(8),
 });
 
 export const defaultAdminPermissions = {
@@ -246,6 +260,65 @@ export async function authRoutes(app: FastifyInstance) {
 
     // See the hotel_users_self_lookup RLS policy for why this uses
     // withUserContext rather than a plain unscoped query.
+    const [membership] = await withUserContext(user.id, (tx) => tx`
+      select hotel_id, role, permissions from hotel_users where user_id = ${user.id} limit 1
+    `);
+    if (!membership) {
+      return reply.code(403).send({ error: "User has no hotel membership" });
+    }
+
+    const token = signToken({
+      userId: user.id,
+      hotelId: membership.hotel_id,
+      role: membership.role,
+    });
+    return reply.send({ token, permissions: membership.permissions });
+  });
+
+  // Forgot password, step 1: email a reset code. Always responds the same way
+  // (and only emails a code when the account actually exists) so the endpoint
+  // can't be used to probe which emails are registered.
+  app.post("/auth/forgot-password", async (req, reply) => {
+    const body = forgotPasswordSchema.parse(req.body);
+
+    const [user] = await sqlUnscoped`
+      select id, email from users where email = ${body.email}
+    `;
+    if (user) {
+      const [membership] = await withUserContext(user.id, (tx) =>
+        tx`select 1 from hotel_users where user_id = ${user.id} limit 1`,
+      );
+      if (membership) {
+        try {
+          await issueResetCode(user.id, user.email);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[mail] reset code failed:", (err as Error).message);
+        }
+      }
+    }
+
+    return reply.send({ challenge: "code", email: body.email });
+  });
+
+  // Forgot password, step 2: verify the code, set the new password, and sign in.
+  app.post("/auth/reset-password", async (req, reply) => {
+    const body = resetPasswordSchema.parse(req.body);
+
+    const [user] = await sqlUnscoped`
+      select id from users where email = ${body.email}
+    `;
+    if (!user) return reply.code(401).send({ error: "Invalid or expired code" });
+
+    if (!(await consumeLoginCode(user.id, body.code))) {
+      return reply.code(401).send({ error: "Invalid or expired code" });
+    }
+
+    const passwordHash = await hashPassword(body.newPassword);
+    await sqlUnscoped`
+      update users set password_hash = ${passwordHash} where id = ${user.id}
+    `;
+
     const [membership] = await withUserContext(user.id, (tx) => tx`
       select hotel_id, role, permissions from hotel_users where user_id = ${user.id} limit 1
     `);

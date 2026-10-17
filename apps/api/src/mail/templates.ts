@@ -72,6 +72,22 @@ export function verificationCodeEmail(code: string): {
   };
 }
 
+export function passwordResetEmail(code: string): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  return {
+    subject: `Reset your Alojaneo password (${code})`,
+    html: shell(
+      `<p style="margin:0 0 12px;font-size:15px;">Use this code to reset your password:</p>
+       <div style="font-size:34px;font-weight:800;letter-spacing:8px;text-align:center;padding:16px 0;">${code}</div>
+       <p style="margin:12px 0 0;color:#6b6b6b;font-size:13px;">It expires in 10 minutes. If you didn't request a password reset, you can ignore this email — your password won't change.</p>`,
+    ),
+    text: `Your Alojaneo password reset code is ${code}. It expires in 10 minutes. If you didn't request this, ignore this email.`,
+  };
+}
+
 export function bookingConfirmationEmail(d: BookingConfirmationData): {
   subject: string;
   html: string;

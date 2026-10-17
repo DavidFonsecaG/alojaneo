@@ -5,11 +5,13 @@ import { getMailer } from "../mail/index.js";
 
 const CODE_TTL_MINUTES = 10;
 
-// Issue a fresh 6-digit login code for a user: invalidate any prior codes,
-// store the new one hashed, and email it. The code only ever leaves via email.
-export async function issueLoginCode(
+// Issue a fresh 6-digit code for a user: invalidate any prior codes, store the
+// new one hashed, and deliver it (always via email — the code never leaves any
+// other way). Login and password-reset share this; only the email differs.
+async function issueCode(
   userId: string,
   email: string,
+  deliver: (email: string, code: string) => Promise<void>,
 ): Promise<void> {
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const codeHash = await hashPassword(code);
@@ -21,7 +23,17 @@ export async function issueLoginCode(
     insert into login_codes (user_id, code_hash, expires_at)
     values (${userId}, ${codeHash}, now() + make_interval(mins => ${CODE_TTL_MINUTES}))
   `;
-  await getMailer().sendLoginCode(email, code);
+  await deliver(email, code);
+}
+
+export function issueLoginCode(userId: string, email: string): Promise<void> {
+  return issueCode(userId, email, (e, c) => getMailer().sendLoginCode(e, c));
+}
+
+export function issueResetCode(userId: string, email: string): Promise<void> {
+  return issueCode(userId, email, (e, c) =>
+    getMailer().sendPasswordResetCode(e, c),
+  );
 }
 
 // Verify (and consume) the most recent valid code for a user.

@@ -42,6 +42,13 @@ interface AuthContextValue {
   // signupVerify confirms the code and establishes the session.
   signup: (input: SignupInput) => Promise<SignupChallenge>;
   signupVerify: (ticket: string, code: string) => Promise<void>;
+  // Forgot password: email a reset code, then set a new password and sign in.
+  forgotPassword: (email: string) => Promise<LoginChallenge>;
+  resetPassword: (
+    email: string,
+    code: string,
+    newPassword: string,
+  ) => Promise<void>;
   logout: () => void;
 }
 
@@ -165,6 +172,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyToken],
   );
 
+  const forgotPassword = useCallback(
+    (email: string) =>
+      api.post<LoginChallenge>(
+        "/auth/forgot-password",
+        { email },
+        { skipAuthRedirect: true },
+      ),
+    [],
+  );
+
+  const resetPassword = useCallback(
+    async (email: string, code: string, newPassword: string) => {
+      const res = await api.post<LoginResponse>(
+        "/auth/reset-password",
+        { email, code, newPassword },
+        { skipAuthRedirect: true },
+      );
+      applyToken(res.token, res.permissions);
+    },
+    [applyToken],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -174,9 +203,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyCode,
       signup,
       signupVerify,
+      forgotPassword,
+      resetPassword,
       logout,
     }),
-    [user, permissions, login, verifyCode, signup, signupVerify, logout],
+    [
+      user,
+      permissions,
+      login,
+      verifyCode,
+      signup,
+      signupVerify,
+      forgotPassword,
+      resetPassword,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
