@@ -52,9 +52,9 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
           onClick={toggle}
           aria-label="Account menu"
           className={cn(
-            "flex h-11 items-center gap-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-accent",
+            "flex h-11 items-center gap-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-neutral-200",
             collapsed ? "w-11 justify-center px-0" : "w-full px-2",
-            open && "bg-accent",
+            open && "bg-neutral-200",
           )}
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
