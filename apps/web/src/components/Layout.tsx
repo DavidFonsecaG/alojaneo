@@ -158,7 +158,7 @@ export function Layout() {
                     base,
                     isActive
                       ? "bg-card text-primary shadow"
-                      : "text-muted-foreground hover:bg-accent hover:text-primary",
+                      : "text-muted-foreground hover:bg-neutral-200 hover:text-primary",
                   )
                 }
               >
