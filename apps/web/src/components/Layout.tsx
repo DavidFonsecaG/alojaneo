@@ -8,13 +8,13 @@ import {
   Sparkles,
   CreditCard,
   Settings,
-  LogOut,
   ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { cn } from "../lib/utils";
+import { AccountMenu, NotificationsBell } from "./SidebarAccount";
 
 interface NavItem {
   to: string;
@@ -36,7 +36,7 @@ const NAV: NavItem[] = [
 ];
 
 export function Layout() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("alojaneo.sidebar") === "collapsed",
@@ -162,31 +162,18 @@ export function Layout() {
           })}
         </nav>
 
-        <div className="space-y-1 p-3">
-          {!collapsed && (
-            <div className="mb-1 overflow-hidden whitespace-nowrap px-3 text-xs text-muted-foreground">
-              Signed in as{" "}
-              <span className="font-medium capitalize text-foreground">
-                {user?.role}
-              </span>
+        <div className="p-3">
+          {collapsed ? (
+            <div className="flex flex-col items-center gap-1">
+              <AccountMenu collapsed />
+              <NotificationsBell collapsed />
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <AccountMenu collapsed={false} />
+              <NotificationsBell collapsed={false} />
             </div>
           )}
-          <button
-            onClick={logout}
-            title="Log out"
-            aria-label="Log out"
-            className="flex h-11 w-full items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            <LogOut className="h-5 w-5 shrink-0" />
-            <span
-              className={cn(
-                "transition-opacity duration-200",
-                collapsed && "opacity-0",
-              )}
-            >
-              Log out
-            </span>
-          </button>
         </div>
       </aside>
 

@@ -12,6 +12,7 @@ import { housekeepingRoutes } from "./routes/housekeeping.js";
 import { hotelSettingsRoutes } from "./routes/hotelSettings.js";
 import { userRoutes } from "./routes/users.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
+import { meRoutes } from "./routes/me.js";
 import { publicBookingRoutes } from "./routes/publicBooking.js";
 import { platformRoutes } from "./routes/platform.js";
 
@@ -56,6 +57,7 @@ export function buildApp() {
   app.register(hotelSettingsRoutes);
   app.register(userRoutes);
   app.register(dashboardRoutes);
+  app.register(meRoutes);
 
   return app;
 }

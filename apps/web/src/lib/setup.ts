@@ -58,6 +58,22 @@ export function useUpdateHotelProfile() {
   );
 }
 
+// The signed-in user's identity, for the account menu.
+export interface Me {
+  email: string;
+  role: string;
+  hotelName: string;
+  hotelSlug: string;
+}
+
+export function useMe() {
+  return useQuery({
+    queryKey: ["me"],
+    queryFn: () => api.get<Me>("/me"),
+    staleTime: 5 * 60_000,
+  });
+}
+
 // ── Hotel settings (deposit policy, taxes) ──────────────────────────
 export function useHotelSettings() {
   return useQuery({
