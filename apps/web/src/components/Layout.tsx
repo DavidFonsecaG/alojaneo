@@ -66,20 +66,24 @@ export function Layout() {
       >
         {/* Brand — the logo stays pinned left; the wordmark fades out. */}
         <div className="flex h-16 items-center px-3">
-          <Link to="/" className="flex items-center gap-2.5 overflow-hidden">
-            <img
-              src="/alojaneo-icon.svg"
-              alt=""
-              className="size-10 shrink-0 rounded-xl"
-            />
-            <span
-              className={cn(
-                "whitespace-nowrap text-lg font-semibold transition-opacity duration-200",
-                collapsed && "opacity-0",
-              )}
-            >
-              Alojaneo
-            </span>
+          <Link
+            to="/"
+            aria-label="Alojaneo"
+            className="flex items-center overflow-hidden"
+          >
+            {collapsed ? (
+              <img
+                src="/alojaneo-icon.svg"
+                alt="Alojaneo"
+                className="size-10 shrink-0 rounded-xl"
+              />
+            ) : (
+              <img
+                src="/alojaneo-logo.svg"
+                alt="Alojaneo"
+                className="h-8 shrink-0"
+              />
+            )}
           </Link>
         </div>
 
