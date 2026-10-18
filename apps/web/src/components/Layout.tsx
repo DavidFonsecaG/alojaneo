@@ -69,21 +69,21 @@ export function Layout() {
           <Link
             to="/"
             aria-label="Alojaneo"
-            className="flex items-center overflow-hidden"
+            className="flex items-center gap-2.5 overflow-hidden"
           >
-            {collapsed ? (
-              <img
-                src="/alojaneo-icon.svg"
-                alt="Alojaneo"
-                className="size-10 shrink-0 rounded-xl"
-              />
-            ) : (
-              <img
-                src="/alojaneo-logo.svg"
-                alt="Alojaneo"
-                className="h-8 shrink-0"
-              />
-            )}
+            <img
+              src="/alojaneo-icon.svg"
+              alt=""
+              className="size-10 shrink-0 rounded-xl"
+            />
+            <span
+              className={cn(
+                "whitespace-nowrap font-brand text-xl font-extrabold tracking-[-0.02em] text-[#15233F] transition-opacity duration-200",
+                collapsed && "opacity-0",
+              )}
+            >
+              Alojaneo
+            </span>
           </Link>
         </div>
 

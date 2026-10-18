@@ -6,6 +6,9 @@ import { AuthProvider } from "./lib/auth";
 import { App } from "./App";
 // Self-hosted Inter (variable weight axis) — bundled by Vite, no external requests.
 import "@fontsource-variable/inter";
+// Nunito ExtraBold (800), latin subset — used only for the Alojaneo brand
+// wordmark, matching the logo. Self-hosted for the same reason as Inter.
+import "@fontsource/nunito/latin-800.css";
 import "./index.css";
 
 const queryClient = new QueryClient({

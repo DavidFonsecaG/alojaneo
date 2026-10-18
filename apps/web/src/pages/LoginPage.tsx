@@ -250,8 +250,11 @@ export function LoginPage() {
       <div className="relative z-10 w-full max-w-md animate-fade-in">
         <div className="rounded-3xl bg-card p-8 shadow-xl ring-1 ring-black/5 sm:p-10">
           {/* Brand lockup */}
-          <div className="flex justify-center">
-            <img src="/alojaneo-logo.svg" alt="Alojaneo" className="h-9" />
+          <div className="flex items-center justify-center gap-2">
+            <img src="/alojaneo-icon.svg" alt="" className="size-9 rounded-xl" />
+            <span className="font-brand text-xl font-extrabold tracking-[-0.02em] text-[#15233F]">
+              Alojaneo
+            </span>
           </div>
 
           <h1 className="mt-7 text-center text-2xl font-semibold tracking-tight">
