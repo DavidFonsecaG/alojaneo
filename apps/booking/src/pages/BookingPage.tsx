@@ -9,6 +9,7 @@ import {
   ImageOff,
   Minus,
   Plus,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import { Button, Card, Field, Input, Select, Spinner } from "../components/ui";
@@ -308,9 +309,11 @@ export function BookingPage() {
           {/* Results */}
           <div className="space-y-4">
             {availability.isLoading ? (
-              <div className="flex items-center gap-2 py-12 text-muted-foreground">
-                <Spinner /> Searching availability…
-              </div>
+              <>
+                <RoomCardSkeleton />
+                <RoomCardSkeleton />
+                <RoomCardSkeleton />
+              </>
             ) : availability.isError ? (
               <Card className="p-6 text-sm text-destructive">
                 {(availability.error as Error).message}
@@ -501,7 +504,8 @@ function SearchBar({
   onSubmit: (e: FormEvent) => void;
 }) {
   return (
-    <Card className="p-4">
+    // Sticky so the dates/guests stay reachable while scrolling a long list.
+    <Card className="sticky top-3 z-30 p-4">
       <form
         onSubmit={onSubmit}
         className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end"
@@ -549,6 +553,33 @@ function EmptyPrompt() {
         Pick your dates and number of guests to see available rooms.
       </p>
     </div>
+  );
+}
+
+// Rate plans store a free-text cancellation policy; tidy the common "free"
+// value, leave anything else as the hotel wrote it.
+function cancellationLabel(policy: string): string {
+  return /^free$/i.test(policy.trim()) ? "Free cancellation" : policy;
+}
+
+// Placeholder that mirrors the room card while availability loads.
+function RoomCardSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      <div className="grid gap-0 sm:grid-cols-[18rem_1fr]">
+        <div className="h-40 animate-pulse bg-muted sm:h-full sm:min-h-[12rem]" />
+        <div className="flex animate-pulse flex-col gap-3 p-5">
+          <div className="h-5 w-40 rounded bg-muted" />
+          <div className="h-3 w-28 rounded bg-muted" />
+          <div className="h-3 w-full rounded bg-muted" />
+          <div className="h-3 w-4/5 rounded bg-muted" />
+          <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
+            <div className="h-4 w-24 rounded bg-muted" />
+            <div className="h-9 w-24 rounded-full bg-muted" />
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -631,13 +662,19 @@ function RoomTypeCard({
                 return (
                   <div
                     key={rp.id}
-                    className="flex flex-wrap items-center justify-between gap-3"
+                    className={cn(
+                      "flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 transition-colors",
+                      qty > 0
+                        ? "border-primary/40 bg-primary/5"
+                        : "border-border",
+                    )}
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium">{rp.name}</div>
                       {rp.cancellationPolicy && (
-                        <div className="text-xs text-muted-foreground">
-                          {rp.cancellationPolicy}
+                        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                          {cancellationLabel(rp.cancellationPolicy)}
                         </div>
                       )}
                     </div>
@@ -811,6 +848,9 @@ function CartSummary({
               {formatMoney(total, currency)}
             </span>
           </div>
+          <p className="mt-1 text-right text-xs text-muted-foreground">
+            {stayNights} night{stayNights === 1 ? "" : "s"} · no booking fees
+          </p>
 
           <Button
             type="button"
@@ -969,7 +1009,9 @@ function CheckoutForm({
 
         <div className="space-y-2 border-t border-border pt-3">
           <div className="flex items-baseline justify-between">
-            <span className="text-sm text-muted-foreground">Total</span>
+            <span className="text-sm text-muted-foreground">
+              Total · no booking fees
+            </span>
             <span className="text-sm font-semibold tabular-nums">
               {formatMoney(total, currency)}
             </span>
