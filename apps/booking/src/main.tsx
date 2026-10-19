@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
 // Self-hosted Inter (variable weight axis) — bundled by Vite, no external requests.
 import "@fontsource-variable/inter";
+// Nunito ExtraBold (latin 800) for the Alojaneo brand wordmark only.
+import "@fontsource/nunito/latin-800.css";
 import "./index.css";
 
 const queryClient = new QueryClient({

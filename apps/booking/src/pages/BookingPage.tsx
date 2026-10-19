@@ -406,6 +406,25 @@ function Shell({
       >
         {children}
       </main>
+
+      {/* Co-branding: the page carries the hotel's own look (header, banner,
+          accent); Alojaneo is credited discreetly in the footer. Dropped in
+          embed mode, where the hotel's site owns the surrounding chrome. */}
+      {!embed && (
+        <footer className="mx-auto max-w-5xl px-4 pb-8 pt-4">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <span>Powered by</span>
+            <img
+              src="/alojaneo-icon.svg"
+              alt=""
+              className="size-4 rounded"
+            />
+            <span className="font-brand font-extrabold tracking-[-0.02em] text-foreground">
+              Alojaneo
+            </span>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { BedDouble, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button, Card, Input } from "../components/ui";
 
 // The booking engine is normally reached at /:hotelSlug (each hotel gets its
@@ -20,10 +20,17 @@ export function LandingPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-md p-8">
         <div className="flex flex-col items-center text-center">
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <BedDouble className="h-6 w-6" />
-          </span>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+          <div className="flex items-center gap-2">
+            <img
+              src="/alojaneo-icon.svg"
+              alt=""
+              className="size-9 rounded-xl"
+            />
+            <span className="font-brand text-xl font-extrabold tracking-[-0.02em] text-[#15233F]">
+              Alojaneo
+            </span>
+          </div>
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight">
             Book your stay
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
