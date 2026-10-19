@@ -1,4 +1,7 @@
 import {
+  createContext,
+  useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -7,7 +10,7 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import { Trash2 } from "lucide-react";
-import { Dialog } from "./ui/dialog";
+import { Dialog, ConfirmDialog } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input, Label, Select } from "./ui/input";
 import { Field } from "./ui/field";
@@ -49,6 +52,15 @@ import type {
   ReservationRoom,
   ReservationRoomStatus,
 } from "../types";
+
+// Lets the editable blocks inside the reservation popup report whether they
+// hold unsaved edits, so closing the dialog can warn before discarding them.
+const ReportDirtyContext = createContext<(key: string, dirty: boolean) => void>(
+  () => {},
+);
+
+// Statuses that end a stay — worth a confirm before applying from the dropdown.
+const DESTRUCTIVE_STATUSES: ReservationRoomStatus[] = ["cancelled", "no_show"];
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "cash", label: "Cash" },
@@ -552,6 +564,19 @@ export function ReservationDetailDialog({
   const { data, isLoading, isError, error } = useReservation(id);
   const [adding, setAdding] = useState(false);
 
+  // Editable blocks (room rows, guest) register their unsaved state here so
+  // closing the dialog can warn before those edits are thrown away.
+  const dirtyKeys = useRef<Set<string>>(new Set());
+  const reportDirty = useCallback((key: string, dirty: boolean) => {
+    if (dirty) dirtyKeys.current.add(key);
+    else dirtyKeys.current.delete(key);
+  }, []);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const handleClose = () => {
+    if (dirtyKeys.current.size > 0) setConfirmClose(true);
+    else onClose();
+  };
+
   // Overall stay window + total, derived from the per-room dates/rates (our
   // model keeps dates on each room, not the reservation folder).
   const checkIns = data ? data.rooms.map((r) => r.check_in).sort() : [];
@@ -566,9 +591,10 @@ export function ReservationDetailDialog({
   const statuses = data ? [...new Set(data.rooms.map((r) => r.status))] : [];
 
   return (
+    <>
     <Dialog
       open
-      onClose={onClose}
+      onClose={handleClose}
       title={
         data ? `${data.guest_first_name} ${data.guest_last_name}` : "Reservation"
       }
@@ -591,6 +617,7 @@ export function ReservationDetailDialog({
         ) : undefined
       }
     >
+      <ReportDirtyContext.Provider value={reportDirty}>
       {isLoading ? (
         <div className="py-8">
           <CenteredSpinner label="Loading…" />
@@ -673,7 +700,21 @@ export function ReservationDetailDialog({
           </div>
         </div>
       )}
+      </ReportDirtyContext.Provider>
     </Dialog>
+
+    <ConfirmDialog
+      open={confirmClose}
+      onClose={() => setConfirmClose(false)}
+      onConfirm={() => {
+        setConfirmClose(false);
+        onClose();
+      }}
+      title="Discard unsaved changes?"
+      description="You have edits that haven't been saved yet. Close anyway?"
+      confirmLabel="Discard"
+    />
+    </>
   );
 }
 
@@ -872,6 +913,12 @@ function GuestSection({ guestId }: { guestId: string }) {
       form.email !== (g.email ?? "") ||
       form.phone !== (g.phone ?? ""));
 
+  const reportDirty = useContext(ReportDirtyContext);
+  useEffect(() => {
+    reportDirty("guest", dirty);
+    return () => reportDirty("guest", false);
+  }, [dirty, reportDirty]);
+
   function save(e: FormEvent) {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim()) {
@@ -990,6 +1037,17 @@ function DialogRoomRow({
     checkOut !== toDateInput(room.check_out) ||
     rate !== centsToInput(room.rate_cents);
 
+  const reportDirty = useContext(ReportDirtyContext);
+  useEffect(() => {
+    reportDirty(room.id, dirty);
+    return () => reportDirty(room.id, false);
+  }, [dirty, reportDirty, room.id]);
+
+  // Confirmations for the destructive actions (remove, cancel / no-show).
+  const [removeConfirm, setRemoveConfirm] = useState(false);
+  const [pendingStatus, setPendingStatus] =
+    useState<ReservationRoomStatus | null>(null);
+
   function reset() {
     setCheckIn(toDateInput(room.check_in));
     setCheckOut(toDateInput(room.check_out));
@@ -1016,6 +1074,7 @@ function DialogRoomRow({
   }
 
   return (
+    <>
     <form
       onSubmit={save}
       className="space-y-3 rounded-lg border border-border p-4"
@@ -1066,12 +1125,16 @@ function DialogRoomRow({
               id={`st-${room.id}`}
               value={room.status}
               disabled={statusMutation.isPending}
-              onChange={(e) =>
-                statusMutation.mutate({
-                  roomId: room.id,
-                  status: e.target.value as ReservationRoomStatus,
-                })
-              }
+              onChange={(e) => {
+                const next = e.target.value as ReservationRoomStatus;
+                // Cancel / no-show end the stay — confirm first; the select
+                // stays on the current status until the change is applied.
+                if (DESTRUCTIVE_STATUSES.includes(next)) {
+                  setPendingStatus(next);
+                } else {
+                  statusMutation.mutate({ roomId: room.id, status: next });
+                }
+              }}
             >
               {ROOM_STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -1091,7 +1154,7 @@ function DialogRoomRow({
               aria-label="Remove room"
               title="Remove room"
               disabled={removeMutation.isPending}
-              onClick={() => removeMutation.mutate(room.id)}
+              onClick={() => setRemoveConfirm(true)}
             >
               {removeMutation.isPending ? (
                 <Spinner />
@@ -1124,6 +1187,33 @@ function DialogRoomRow({
         </div>
       )}
     </form>
+
+    <ConfirmDialog
+      open={removeConfirm}
+      onClose={() => setRemoveConfirm(false)}
+      onConfirm={() => {
+        setRemoveConfirm(false);
+        removeMutation.mutate(room.id);
+      }}
+      title="Remove this room?"
+      description={`Room ${room.room_number ?? ""} will be removed from this reservation.`}
+      confirmLabel="Remove room"
+      loading={removeMutation.isPending}
+    />
+    <ConfirmDialog
+      open={pendingStatus !== null}
+      onClose={() => setPendingStatus(null)}
+      onConfirm={() => {
+        if (pendingStatus)
+          statusMutation.mutate({ roomId: room.id, status: pendingStatus });
+        setPendingStatus(null);
+      }}
+      title={pendingStatus === "no_show" ? "Mark as no-show?" : "Cancel this room?"}
+      description={`This releases Room ${room.room_number ?? ""} for these dates. You can change the status back afterwards.`}
+      confirmLabel={pendingStatus === "no_show" ? "Mark no-show" : "Cancel room"}
+      loading={statusMutation.isPending}
+    />
+    </>
   );
 }
 
