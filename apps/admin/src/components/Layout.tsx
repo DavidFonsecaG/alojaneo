@@ -1,5 +1,4 @@
 import { Link, Outlet } from "react-router-dom";
-import { ShieldCheck } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { Button } from "./ui";
 
@@ -9,12 +8,16 @@ export function Layout() {
     <div className="min-h-screen">
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <ShieldCheck className="h-4 w-4" />
-            </span>
+          <Link to="/" className="flex items-center gap-2.5">
+            <img
+              src="/alojaneo-icon.svg"
+              alt=""
+              className="size-8 rounded-lg"
+            />
             <div className="leading-tight">
-              <div className="text-sm font-semibold">Alojaneo</div>
+              <div className="font-brand text-base font-extrabold tracking-[-0.02em] text-[#15233F]">
+                Alojaneo
+              </div>
               <div className="text-xs text-muted-foreground">Platform admin</div>
             </div>
           </Link>

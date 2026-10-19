@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { ShieldCheck } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { ApiError } from "../lib/api";
 import { Button, Card, Field, Input, Spinner } from "../components/ui";
@@ -41,9 +40,11 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-sm p-8">
         <div className="flex flex-col items-center text-center">
-          <span className="flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <ShieldCheck className="h-6 w-6" />
-          </span>
+          <img
+            src="/alojaneo-icon.svg"
+            alt=""
+            className="size-11 rounded-2xl"
+          />
           <h1 className="mt-4 text-xl font-semibold tracking-tight">
             {codeStep ? "Check your email" : "Platform admin"}
           </h1>

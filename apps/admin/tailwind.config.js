@@ -15,6 +15,8 @@ export default {
           "Arial",
           "sans-serif",
         ],
+        // Brand wordmark only (Nunito ExtraBold), matching the logo.
+        brand: ['"Nunito"', '"Inter Variable"', "ui-sans-serif", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
