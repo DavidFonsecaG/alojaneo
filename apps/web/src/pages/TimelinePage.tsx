@@ -661,6 +661,22 @@ function Lane({
           const clippedL = rawLeft < 0;
           const clippedR = rawRight > winPx;
           const GAP = 2; // keeps neighbouring bars visually distinct
+          const barW =
+            right - left - (clippedL ? 0 : GAP) - (clippedR ? 0 : GAP);
+
+          // Richer label as the bar widens: the full name once it fits, and
+          // the night count when there's plenty of room. Narrow bars keep the
+          // compact "Last, F." form (and everything truncates as a backstop).
+          const stayN = Math.max(
+            1,
+            Math.round((co.getTime() - ci.getTime()) / DAY_MS),
+          );
+          const name =
+            barW >= 110
+              ? `${s.guest_first_name} ${s.guest_last_name}`.trim()
+              : `${s.guest_last_name}${
+                  s.guest_first_name ? `, ${s.guest_first_name[0]}.` : ""
+                }`;
 
           return (
             <button
@@ -682,13 +698,15 @@ function Lane({
               )}
               style={{
                 left: left + (clippedL ? 0 : GAP),
-                width: right - left - (clippedL ? 0 : GAP) - (clippedR ? 0 : GAP),
+                width: barW,
               }}
             >
-              <span className="truncate">
-                {s.guest_last_name}
-                {s.guest_first_name ? `, ${s.guest_first_name[0]}.` : ""}
-              </span>
+              <span className="truncate">{name}</span>
+              {barW >= 150 && (
+                <span className="ml-auto shrink-0 pl-2 text-[10px] font-normal text-white/80">
+                  {stayN} {stayN === 1 ? "night" : "nights"}
+                </span>
+              )}
             </button>
           );
         })}
