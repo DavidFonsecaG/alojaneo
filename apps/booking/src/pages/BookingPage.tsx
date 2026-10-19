@@ -4,9 +4,13 @@ import {
   ArrowLeft,
   BedDouble,
   CalendarDays,
+  CalendarPlus,
   Check,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ImageOff,
+  Lock,
   Minus,
   Plus,
   ShieldCheck,
@@ -320,12 +324,27 @@ export function BookingPage() {
               </Card>
             ) : (availability.data ?? []).length === 0 ? (
               <Card className="p-8 text-center">
-                <p className="font-medium">No rooms available</p>
+                <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground" />
+                <p className="mt-3 font-medium">No rooms available</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Nothing matches {formatDate(submitted.checkIn)} –{" "}
                   {formatDate(submitted.checkOut)} for {submitted.guests} guest
-                  {submitted.guests === 1 ? "" : "s"}. Try different dates.
+                  {submitted.guests === 1 ? "" : "s"}.
                 </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Try shifting your dates
+                  {submitted.guests > 1 ? " or lowering the guest count" : ""}.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() =>
+                    window.scrollTo({ top: 0, behavior: "smooth" })
+                  }
+                >
+                  Adjust your search
+                </Button>
               </Card>
             ) : (
               (availability.data ?? []).map((item) => (
@@ -756,30 +775,57 @@ function PhotoGallery({ photos, alt }: { photos: string[]; alt: string }) {
     );
   }
 
+  const many = photos.length > 1;
+  const go = (dir: number) =>
+    setActive((i) => (i + dir + photos.length) % photos.length);
+
   return (
     <div className="flex flex-col gap-1.5 bg-muted p-1.5">
-      <img
-        src={photos[active]}
-        alt={alt}
-        className="h-40 w-full rounded-2xl object-cover sm:h-full sm:min-h-[10rem]"
-      />
-      {photos.length > 1 && (
+      <div className="group relative">
+        <img
+          src={photos[active]}
+          alt={many ? `${alt} — photo ${active + 1} of ${photos.length}` : alt}
+          className="h-40 w-full rounded-2xl object-cover sm:h-full sm:min-h-[10rem]"
+        />
+        {many && (
+          <>
+            <button
+              type="button"
+              aria-label="Previous photo"
+              onClick={() => go(-1)}
+              className="absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Next photo"
+              onClick={() => go(1)}
+              className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-[11px] font-medium tabular-nums text-white">
+              {active + 1}/{photos.length}
+            </span>
+          </>
+        )}
+      </div>
+      {many && (
         <div className="flex gap-1.5 overflow-x-auto">
           {photos.map((p, i) => (
             <button
               key={i}
               type="button"
+              aria-label={`View photo ${i + 1}`}
+              aria-current={i === active ? "true" : undefined}
               onClick={() => setActive(i)}
               className={
                 "h-10 w-14 shrink-0 overflow-hidden rounded-lg ring-2 ring-offset-1 " +
                 (i === active ? "ring-primary" : "ring-transparent")
               }
             >
-              <img
-                src={p}
-                alt=""
-                className="h-full w-full object-cover"
-              />
+              <img src={p} alt="" className="h-full w-full object-cover" />
             </button>
           ))}
         </div>
@@ -889,15 +935,20 @@ function CheckoutForm({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const stayNights = nights(submitted.checkIn, submitted.checkOut);
 
+  const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
+  const emailError = emailTouched && email.trim().length > 0 && !emailValid;
+
   function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-      setError("Name and email are required.");
+    if (!firstName.trim() || !lastName.trim() || !emailValid) {
+      setEmailTouched(true);
+      setError("Please enter your name and a valid email.");
       return;
     }
     create.mutate(
@@ -996,8 +1047,15 @@ function CheckoutForm({
             id="ge"
             type="email"
             value={email}
+            aria-invalid={emailError || undefined}
+            onBlur={() => setEmailTouched(true)}
             onChange={(e) => setEmail(e.target.value)}
           />
+          {emailError && (
+            <p className="mt-1 text-xs text-destructive">
+              Enter a valid email address.
+            </p>
+          )}
         </Field>
         <Field label="Phone (optional)" htmlFor="gp">
           <Input
@@ -1051,9 +1109,53 @@ function CheckoutForm({
             ? `Pay ${formatMoney(payNow, currency)} & confirm`
             : "Confirm booking"}
         </Button>
+
+        {payNow > 0 && (
+          <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            <Lock className="h-3 w-3 shrink-0" />
+            Secure payment · your details are encrypted
+          </p>
+        )}
       </form>
     </Card>
   );
+}
+
+// Build and download a calendar event for the stay (all-day, check-in →
+// check-out). Self-contained .ics, no external service.
+function downloadStayIcs(c: BookingConfirmation) {
+  const day = (iso: string) => iso.slice(0, 10).replace(/-/g, "");
+  const stamp =
+    new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const esc = (s: string) =>
+    s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Alojaneo//Booking//EN",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${c.bookingRef || stamp}@alojaneo`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${day(c.checkIn)}`,
+    `DTEND;VALUE=DATE:${day(c.checkOut)}`,
+    `SUMMARY:${esc(`Stay at ${c.hotelName}`)}`,
+    `DESCRIPTION:${esc(`Booking ${c.bookingRef} · ${c.guest.firstName} ${c.guest.lastName}`)}`,
+    `LOCATION:${esc(c.hotelName)}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  const url = URL.createObjectURL(
+    new Blob([ics], { type: "text/calendar;charset=utf-8" }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${c.bookingRef || "booking"}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function ConfirmationView({
@@ -1116,15 +1218,16 @@ function ConfirmationView({
           )}
         </dl>
 
-        <Button
-          type="button"
-          variant="outline"
-          className="mt-6"
-          onClick={onReset}
-        >
-          <Check className="h-4 w-4" />
-          Book another stay
-        </Button>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <Button type="button" onClick={() => downloadStayIcs(c)}>
+            <CalendarPlus className="h-4 w-4" />
+            Add to calendar
+          </Button>
+          <Button type="button" variant="outline" onClick={onReset}>
+            <Check className="h-4 w-4" />
+            Book another stay
+          </Button>
+        </div>
       </Card>
     </div>
   );
