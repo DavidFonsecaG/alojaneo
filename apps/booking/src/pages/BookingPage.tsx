@@ -724,7 +724,7 @@ function RoomTypeCard({
                             type="button"
                             aria-label={`Remove one ${rp.name}`}
                             onClick={() => onRemoveOne(rp)}
-                            className="flex size-8 items-center justify-center rounded-full border border-input text-foreground transition-colors hover:bg-muted"
+                            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition-colors hover:bg-muted"
                           >
                             <Minus className="h-4 w-4" />
                           </button>
@@ -736,7 +736,7 @@ function RoomTypeCard({
                             aria-label={`Add one ${rp.name}`}
                             disabled={remaining <= 0}
                             onClick={() => onAdd(rp)}
-                            className="flex size-8 items-center justify-center rounded-full border border-input text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition-colors hover:bg-muted disabled:opacity-40"
                           >
                             <Plus className="h-4 w-4" />
                           </button>
@@ -793,7 +793,7 @@ function PhotoGallery({ photos, alt }: { photos: string[]; alt: string }) {
               type="button"
               aria-label="Previous photo"
               onClick={() => go(-1)}
-              className="absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100"
+              className="absolute left-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -801,7 +801,7 @@ function PhotoGallery({ photos, alt }: { photos: string[]; alt: string }) {
               type="button"
               aria-label="Next photo"
               onClick={() => go(1)}
-              className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100"
+              className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -869,7 +869,7 @@ function CartSummary({
                   <div className="text-sm font-medium">
                     {l.item.roomType.name}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground tabular-nums">
                     {l.ratePlan.name} ·{" "}
                     {formatMoney(
                       l.ratePlan.baseRateCents * Math.max(stayNights, 1),
@@ -1031,6 +1031,8 @@ function CheckoutForm({
             <Input
               id="gf"
               value={firstName}
+              required
+              autoComplete="given-name"
               onChange={(e) => setFirstName(e.target.value)}
             />
           </Field>
@@ -1038,6 +1040,8 @@ function CheckoutForm({
             <Input
               id="gl"
               value={lastName}
+              required
+              autoComplete="family-name"
               onChange={(e) => setLastName(e.target.value)}
             />
           </Field>
@@ -1047,6 +1051,8 @@ function CheckoutForm({
             id="ge"
             type="email"
             value={email}
+            required
+            autoComplete="email"
             aria-invalid={emailError || undefined}
             onBlur={() => setEmailTouched(true)}
             onChange={(e) => setEmail(e.target.value)}
@@ -1060,7 +1066,9 @@ function CheckoutForm({
         <Field label="Phone (optional)" htmlFor="gp">
           <Input
             id="gp"
+            type="tel"
             value={phone}
+            autoComplete="tel"
             onChange={(e) => setPhone(e.target.value)}
           />
         </Field>

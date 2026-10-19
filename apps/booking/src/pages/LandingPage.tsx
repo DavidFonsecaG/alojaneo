@@ -10,6 +10,11 @@ export function LandingPage() {
   const navigate = useNavigate();
   const [slug, setSlug] = useState("");
 
+  // Don't auto-focus on touch devices — it pops the keyboard and hides the page.
+  const canAutoFocus =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(hover: hover)").matches;
+
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     const trimmed = slug.trim().toLowerCase();
@@ -44,7 +49,9 @@ export function LandingPage() {
             onChange={(e) => setSlug(e.target.value)}
             placeholder="hotel-slug"
             aria-label="Hotel slug"
-            autoFocus
+            required
+            autoComplete="off"
+            autoFocus={canAutoFocus}
           />
           <Button type="submit" size="lg" className="w-full" disabled={!slug.trim()}>
             Continue
