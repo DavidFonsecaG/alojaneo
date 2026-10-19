@@ -589,6 +589,15 @@ export function ReservationDetailDialog({
       data.rooms.reduce((s, r) => s + r.rate_cents, 0))
     : 0;
   const statuses = data ? [...new Set(data.rooms.map((r) => r.status))] : [];
+  // Show the rooms in room-number order (numeric-aware), not whatever order the
+  // API returns them in.
+  const sortedRooms = data
+    ? [...data.rooms].sort((a, b) =>
+        (a.room_number ?? "").localeCompare(b.room_number ?? "", undefined, {
+          numeric: true,
+        }),
+      )
+    : [];
 
   return (
     <>
@@ -661,7 +670,7 @@ export function ReservationDetailDialog({
                 )
               }
             />
-            {data.rooms.map((room, i) => (
+            {sortedRooms.map((room, i) => (
               <DialogRoomRow
                 key={room.id}
                 room={room}
@@ -674,8 +683,8 @@ export function ReservationDetailDialog({
               <AddRoomForm
                 reservationId={data.id}
                 existingRoomIds={data.rooms.map((r) => r.room_id)}
-                defaultCheckIn={toDateInput(data.rooms[0]?.check_in)}
-                defaultCheckOut={toDateInput(data.rooms[0]?.check_out)}
+                defaultCheckIn={toDateInput(sortedRooms[0]?.check_in)}
+                defaultCheckOut={toDateInput(sortedRooms[0]?.check_out)}
                 onDone={() => setAdding(false)}
               />
             )}
@@ -1065,11 +1074,30 @@ function DialogRoomRow({
     useState<ReservationRoomStatus | null>(null);
 
   // One-click next step: confirmed → check in, checked-in → check out.
-  const quick: { label: string; icon: typeof LogIn; next: ReservationRoomStatus } | null =
+  const quick:
+    | {
+        label: string;
+        icon: typeof LogIn;
+        next: ReservationRoomStatus;
+        className: string;
+      }
+    | null =
     room.status === "confirmed"
-      ? { label: "Check in", icon: LogIn, next: "checked_in" }
+      ? {
+          label: "Check in",
+          icon: LogIn,
+          next: "checked_in",
+          className:
+            "border-emerald-500/40 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800",
+        }
       : room.status === "checked_in"
-        ? { label: "Check out", icon: LogOut, next: "checked_out" }
+        ? {
+            label: "Check out",
+            icon: LogOut,
+            next: "checked_out",
+            className:
+              "border-sky-500/40 text-sky-700 hover:bg-sky-50 hover:text-sky-800",
+          }
         : null;
   const QuickIcon = quick?.icon;
 
@@ -1199,6 +1227,7 @@ function DialogRoomRow({
               type="button"
               variant="outline"
               size="sm"
+              className={quick.className}
               disabled={statusMutation.isPending}
               onClick={() =>
                 statusMutation.mutate({ roomId: room.id, status: quick.next })
