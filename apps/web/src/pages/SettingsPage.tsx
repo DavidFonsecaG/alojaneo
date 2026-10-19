@@ -10,6 +10,7 @@ import { cn } from "../lib/utils";
 import { useAuth } from "../lib/auth";
 import { useHotelProfile, useUpdateHotelProfile } from "../lib/setup";
 import { DepositSettings } from "../components/DepositSettings";
+import { PaymentSettings } from "../components/PaymentSettings";
 import { UsersSettings } from "../components/UsersSettings";
 import { RoomsSetup } from "./RoomsPage";
 import { RatePlansSetup } from "./RatePlansPage";
@@ -23,11 +24,18 @@ const DEFAULT_ACCENT = "#171717";
 const DEFAULT_POSITION = 50;
 const MAX_BANNER_BYTES = 4 * 1024 * 1024;
 
-type TabId = "booking" | "deposits" | "rooms" | "rates" | "users";
+type TabId =
+  | "booking"
+  | "deposits"
+  | "payments"
+  | "rooms"
+  | "rates"
+  | "users";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "booking", label: "Booking engine" },
   { id: "deposits", label: "Deposits" },
+  { id: "payments", label: "Payments" },
   { id: "rooms", label: "Rooms" },
   { id: "rates", label: "Rate plans" },
   { id: "users", label: "Users" },
@@ -94,6 +102,7 @@ export function SettingsPage() {
           >
             {tab === "booking" && <BrandingSettings />}
             {tab === "deposits" && <DepositSettings />}
+            {tab === "payments" && <PaymentSettings />}
             {tab === "rooms" && <RoomsSetup />}
             {tab === "rates" && <RatePlansSetup />}
             {tab === "users" && <UsersSettings />}

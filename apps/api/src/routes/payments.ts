@@ -90,7 +90,7 @@ export async function paymentRoutes(app: FastifyInstance) {
       const { id } = req.params;
 
       const [payment] = await withTenant(req.hotelId, (tx) =>
-        tx`select id, amount_cents, method, status, reference
+        tx`select id, amount_cents, method, provider, status, reference, provider_tx_id
            from payments where id = ${id}`,
       );
 
@@ -104,10 +104,10 @@ export async function paymentRoutes(app: FastifyInstance) {
       }
 
       // Only round-trip to the gateway for payments it processed.
-      const adapter = getPaymentAdapter();
-      if (payment.method === adapter.name) {
+      const adapter = await getPaymentAdapter(req.hotelId);
+      if ((payment.provider ?? payment.method) === adapter.name) {
         const refund = await adapter.refund(
-          payment.reference ?? "",
+          payment.provider_tx_id ?? payment.reference ?? "",
           payment.amount_cents,
         );
         if (refund.status === "failed") {

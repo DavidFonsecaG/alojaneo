@@ -395,7 +395,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
     let redirectUrl: string | null = null;
 
     if (depositCents > 0) {
-      const adapter = getPaymentAdapter();
+      const adapter = await getPaymentAdapter(hotelId);
       const returnUrl = `${bookingBaseUrl()}/${hotelSlug}?pay_return=${result.reservationId}`;
       const intent = await adapter.createIntent({
         reservationId: result.reservationId,
@@ -499,7 +499,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
         return reply.code(409).send({ error: `Payment is ${pay.status}` });
       }
 
-      const adapter = getPaymentAdapter();
+      const adapter = await getPaymentAdapter(hotel.id);
       const confirmed = await adapter.confirm({
         clientTxId: body.clientTxId,
         providerTxId: body.providerTxId,

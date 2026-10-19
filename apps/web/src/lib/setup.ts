@@ -109,6 +109,39 @@ export function useUpdateHotelSettings() {
   );
 }
 
+// ── Payment gateway (per-hotel) ─────────────────────────────────────
+// The private key is write-only: the server returns `hasPrivateKey`, never the
+// key itself.
+export interface HotelPaymentSettings {
+  provider: string; // mock | kushki | payphone
+  publicKey: string | null;
+  enabled: boolean;
+  hasPrivateKey: boolean;
+  webhookUrl: string | null;
+}
+
+export function useHotelPaymentSettings() {
+  return useQuery({
+    queryKey: ["hotel-payment-settings"],
+    queryFn: () => api.get<HotelPaymentSettings>("/hotel/payment-settings"),
+  });
+}
+
+export interface HotelPaymentSettingsInput {
+  provider?: string;
+  publicKey?: string | null; // null/"" clears
+  privateKey?: string; // write-only; "" clears, omit to keep
+  enabled?: boolean;
+}
+
+export function useUpdateHotelPaymentSettings() {
+  return useInvalidatingMutation(
+    (input: HotelPaymentSettingsInput) =>
+      api.put<HotelPaymentSettings>("/hotel/payment-settings", input),
+    [["hotel-payment-settings"]],
+  );
+}
+
 // ── Users & permissions ─────────────────────────────────────────────
 export function useUsers() {
   return useQuery({

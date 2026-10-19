@@ -1,33 +1,51 @@
 import { MockPaymentAdapter } from "./mockAdapter.js";
 import { PayPhonePaymentAdapter } from "./payphoneAdapter.js";
+import { getHotelPaymentConfig } from "./config.js";
 import type { PaymentAdapter } from "./types.js";
 
 export * from "./types.js";
+export {
+  getHotelPaymentConfig,
+  saveHotelPaymentConfig,
+  type HotelPaymentConfig,
+  type SavePaymentConfigInput,
+} from "./config.js";
 
-let adapter: PaymentAdapter | null = null;
+const mock = new MockPaymentAdapter();
 
-// Resolve the active gateway from PAYMENT_PROVIDER. "payphone" needs
-// PAYPHONE_TOKEN + PAYPHONE_STORE_ID; if those are missing it falls back to the
-// mock with a loud warning so dev keeps working and misconfiguration is obvious.
-export function getPaymentAdapter(): PaymentAdapter {
-  if (adapter) return adapter;
-  const provider = process.env.PAYMENT_PROVIDER ?? "mock";
+// Per-hotel adapter cache. The signature includes the provider + key presence so
+// a settings change takes effect without a server restart.
+const cache = new Map<string, { sig: string; adapter: PaymentAdapter }>();
 
-  if (provider === "payphone") {
-    const token = process.env.PAYPHONE_TOKEN;
-    const storeId = process.env.PAYPHONE_STORE_ID;
-    if (token && storeId) {
-      adapter = new PayPhonePaymentAdapter(token, storeId);
-    } else {
-      // eslint-disable-next-line no-console
-      console.warn(
-        "[payments] PAYMENT_PROVIDER=payphone but PAYPHONE_TOKEN/STORE_ID are unset — falling back to the mock gateway.",
-      );
-      adapter = new MockPaymentAdapter();
-    }
+// Resolve the active gateway for a hotel from its stored config. A hotel that
+// hasn't enabled + configured a gateway (or whose key can't be decrypted) gets
+// the mock, so dev and unconfigured tenants keep working.
+export async function getPaymentAdapter(
+  hotelId: string,
+): Promise<PaymentAdapter> {
+  const cfg = await getHotelPaymentConfig(hotelId);
+  const active = cfg?.enabled && cfg.privateKey ? cfg.provider : "mock";
+  const sig = `${active}|${cfg?.publicKey ?? ""}|${cfg?.privateKey ? "k" : ""}`;
+
+  const hit = cache.get(hotelId);
+  if (hit && hit.sig === sig) return hit.adapter;
+
+  let adapter: PaymentAdapter;
+  if (active === "payphone" && cfg?.privateKey) {
+    // PayPhone's Bearer token + storeId map onto our private/public key fields.
+    adapter = new PayPhonePaymentAdapter(cfg.privateKey, cfg.publicKey ?? "");
+  } else if (active === "kushki" && cfg?.privateKey) {
+    // The Kushki adapter is added in a later step; mock until then.
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[payments] Kushki adapter not wired yet — using the mock gateway.",
+    );
+    adapter = mock;
   } else {
-    adapter = new MockPaymentAdapter();
+    adapter = mock;
   }
+
+  cache.set(hotelId, { sig, adapter });
   return adapter;
 }
 

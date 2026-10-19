@@ -27,6 +27,14 @@ export const hotels = pgTable("hotels", {
   // Vertical focal point for the banner, 0–100 (%). 50 = centered.
   bannerPosition: integer("banner_position").notNull().default(50),
   accentColor: text("accent_color"),
+  // Per-hotel payment gateway config (see migration 0010). The private key is
+  // AES-256-GCM encrypted at rest; the public key is publishable. The webhook
+  // token anchors the (tenant-context-free) webhook URL to this hotel.
+  paymentProvider: text("payment_provider").notNull().default("mock"), // kushki | payphone | mock
+  paymentPublicKey: text("payment_public_key"),
+  paymentPrivateKeyEnc: text("payment_private_key_enc"),
+  paymentWebhookToken: text("payment_webhook_token"),
+  paymentEnabled: boolean("payment_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -277,10 +285,34 @@ export const payments = pgTable("payments", {
     .references(() => reservations.id, { onDelete: "cascade" }),
   amountCents: integer("amount_cents").notNull(),
   currency: text("currency").notNull().default("USD"),
-  method: text("method").notNull(), // 'cash' | 'credit_card' | 'bank_transfer' | 'payphone' | 'placetopay' | 'paypal'
+  method: text("method").notNull(), // how: 'cash' | 'credit_card' | 'bank_transfer' | 'card'
   status: text("status").notNull().default("completed"), // pending | completed | refunded | failed
   reference: text("reference"),
+  // Payment lifecycle (see migration 0010).
+  provider: text("provider"), // who processed it: kushki | payphone | manual | mock
+  clientTxId: text("client_tx_id"), // our stable handle for the attempt
+  providerTxId: text("provider_tx_id"), // the gateway's transaction id
+  kind: text("kind").notNull().default("charge"), // charge | refund
+  parentPaymentId: uuid("parent_payment_id"), // refund -> original charge
+  metadata: jsonb("metadata"), // raw gateway payload, for audit/disputes
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// Inbound payment webhooks — idempotency (unique provider+event_id) and audit.
+// Global (no tenant scope); the handler resolves the hotel via the webhook token
+// in the URL, then settles inside withTenant().
+export const paymentWebhookEvents = pgTable("payment_webhook_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  provider: text("provider").notNull(),
+  eventId: text("event_id").notNull(),
+  payload: jsonb("payload").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
 });
