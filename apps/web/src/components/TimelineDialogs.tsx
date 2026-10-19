@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { Link } from "react-router-dom";
-import { Trash2 } from "lucide-react";
+import { LogIn, LogOut, Trash2 } from "lucide-react";
 import { Dialog, ConfirmDialog } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input, Label, Select } from "./ui/input";
@@ -628,26 +628,21 @@ export function ReservationDetailDialog({
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Overall stay · aggregate status · reservation id */}
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-muted/40 px-4 py-3">
-            <div className="flex items-center gap-3">
-              {statuses.length === 1 ? (
-                <StatusBadge status={statuses[0]} />
-              ) : (
-                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  Mixed statuses
-                </span>
-              )}
-              {rangeIn && rangeOut && (
-                <span className="text-sm text-muted-foreground">
-                  {formatDate(rangeIn)} → {formatDate(rangeOut)} · {stayNights}{" "}
-                  night{stayNights === 1 ? "" : "s"}
-                </span>
-              )}
-            </div>
-            <div className="select-all break-all text-[10px] text-muted-foreground">
-              {data.id}
-            </div>
+          {/* Overall stay · aggregate status */}
+          <div className="flex flex-wrap items-center gap-3 rounded-lg bg-muted/40 px-4 py-3">
+            {statuses.length === 1 ? (
+              <StatusBadge status={statuses[0]} />
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                Mixed statuses
+              </span>
+            )}
+            {rangeIn && rangeOut && (
+              <span className="text-sm text-muted-foreground">
+                {formatDate(rangeIn)} → {formatDate(rangeOut)} · {stayNights}{" "}
+                night{stayNights === 1 ? "" : "s"}
+              </span>
+            )}
           </div>
 
           {/* Rooms — full width so each fits on a single row */}
@@ -666,12 +661,13 @@ export function ReservationDetailDialog({
                 )
               }
             />
-            {data.rooms.map((room) => (
+            {data.rooms.map((room, i) => (
               <DialogRoomRow
                 key={room.id}
                 room={room}
                 reservationId={data.id}
                 canRemove={data.rooms.length > 1}
+                showLabels={i === 0}
               />
             ))}
             {adding && (
@@ -895,6 +891,7 @@ function GuestSection({ guestId }: { guestId: string }) {
     phone: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [emailTouched, setEmailTouched] = useState(false);
 
   useEffect(() => {
     if (!g) return;
@@ -905,6 +902,11 @@ function GuestSection({ guestId }: { guestId: string }) {
       phone: g.phone ?? "",
     });
   }, [g?.id, g?.first_name, g?.last_name, g?.email, g?.phone]);
+
+  // Email is optional on a guest record; validate only when one is entered.
+  const emailValid =
+    form.email.trim() === "" || /^\S+@\S+\.\S+$/.test(form.email.trim());
+  const emailError = emailTouched && form.email.trim() !== "" && !emailValid;
 
   const dirty =
     !!g &&
@@ -923,6 +925,11 @@ function GuestSection({ guestId }: { guestId: string }) {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim()) {
       setError("First and last name are required.");
+      return;
+    }
+    if (!emailValid) {
+      setEmailTouched(true);
+      setError("Enter a valid email address.");
       return;
     }
     setError(null);
@@ -976,10 +983,17 @@ function GuestSection({ guestId }: { guestId: string }) {
                 id="g-email"
                 type="email"
                 value={form.email}
+                aria-invalid={emailError || undefined}
+                onBlur={() => setEmailTouched(true)}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, email: e.target.value }))
                 }
               />
+              {emailError && (
+                <p className="mt-1 text-xs text-destructive">
+                  Enter a valid email address.
+                </p>
+              )}
             </Field>
             <Field label="Phone" htmlFor="g-phone">
               <Input
@@ -1010,10 +1024,12 @@ function DialogRoomRow({
   room,
   reservationId,
   canRemove,
+  showLabels,
 }: {
   room: ReservationRoom;
   reservationId: string;
   canRemove: boolean;
+  showLabels: boolean;
 }) {
   const statusMutation = useUpdateRoomStatus(reservationId);
   const detailsMutation = useUpdateRoomDetails(reservationId);
@@ -1048,6 +1064,15 @@ function DialogRoomRow({
   const [pendingStatus, setPendingStatus] =
     useState<ReservationRoomStatus | null>(null);
 
+  // One-click next step: confirmed → check in, checked-in → check out.
+  const quick: { label: string; icon: typeof LogIn; next: ReservationRoomStatus } | null =
+    room.status === "confirmed"
+      ? { label: "Check in", icon: LogIn, next: "checked_in" }
+      : room.status === "checked_in"
+        ? { label: "Check out", icon: LogOut, next: "checked_out" }
+        : null;
+  const QuickIcon = quick?.icon;
+
   function reset() {
     setCheckIn(toDateInput(room.check_in));
     setCheckOut(toDateInput(room.check_out));
@@ -1077,75 +1102,116 @@ function DialogRoomRow({
     <>
     <form
       onSubmit={save}
-      className="space-y-3 rounded-lg border border-border p-4"
+      className="space-y-3 rounded-lg border border-border p-3"
     >
-      {/* One horizontal row: room · dates · rate · status · remove */}
+      {/* One horizontal row: room · dates · rate · status · actions. Labels
+          only on the first row (passed via showLabels) so the stack stays
+          compact instead of repeating every heading per room. */}
       <div className="flex flex-wrap items-end gap-3">
-        <div className="w-14 shrink-0">
-          <Label>Room</Label>
-          <div className="mt-1.5 flex h-9 items-center text-sm font-semibold">
+        <div className="w-12 shrink-0">
+          {showLabels && <Label className="mb-1.5 block">Room</Label>}
+          <div className="flex h-9 items-center text-sm font-semibold">
             {room.room_number ?? "—"}
           </div>
         </div>
         <div className="min-w-[9rem] flex-1">
-          <Field label="Check-in" htmlFor={`ci-${room.id}`}>
-            <Input
-              id={`ci-${room.id}`}
-              type="date"
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-            />
-          </Field>
+          {showLabels && (
+            <Label htmlFor={`ci-${room.id}`} className="mb-1.5 block">
+              Check-in
+            </Label>
+          )}
+          <Input
+            id={`ci-${room.id}`}
+            aria-label="Check-in"
+            type="date"
+            value={checkIn}
+            onChange={(e) => setCheckIn(e.target.value)}
+          />
         </div>
         <div className="min-w-[9rem] flex-1">
-          <Field label="Check-out" htmlFor={`co-${room.id}`}>
-            <Input
-              id={`co-${room.id}`}
-              type="date"
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-            />
-          </Field>
+          {showLabels && (
+            <Label htmlFor={`co-${room.id}`} className="mb-1.5 block">
+              Check-out
+            </Label>
+          )}
+          <Input
+            id={`co-${room.id}`}
+            aria-label="Check-out"
+            type="date"
+            value={checkOut}
+            onChange={(e) => setCheckOut(e.target.value)}
+          />
         </div>
         <div className="w-28">
-          <Field label="Rate" htmlFor={`rate-${room.id}`}>
+          {showLabels && (
+            <Label htmlFor={`rate-${room.id}`} className="mb-1.5 block">
+              Rate
+            </Label>
+          )}
+          <div className="relative">
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              $
+            </span>
             <Input
               id={`rate-${room.id}`}
+              aria-label="Rate"
               type="number"
               min={0}
               step="0.01"
               value={rate}
               onChange={(e) => setRate(e.target.value)}
+              className="pl-6"
             />
-          </Field>
+          </div>
         </div>
-        <div className="w-40">
-          <Field label="Status" htmlFor={`st-${room.id}`}>
-            <Select
-              id={`st-${room.id}`}
-              value={room.status}
+        <div className="w-36">
+          {showLabels && (
+            <Label htmlFor={`st-${room.id}`} className="mb-1.5 block">
+              Status
+            </Label>
+          )}
+          <Select
+            id={`st-${room.id}`}
+            aria-label="Status"
+            value={room.status}
+            disabled={statusMutation.isPending}
+            onChange={(e) => {
+              const next = e.target.value as ReservationRoomStatus;
+              // Cancel / no-show end the stay — confirm first; the select
+              // stays on the current status until the change is applied.
+              if (DESTRUCTIVE_STATUSES.includes(next)) {
+                setPendingStatus(next);
+              } else {
+                statusMutation.mutate({ roomId: room.id, status: next });
+              }
+            }}
+          >
+            {ROOM_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s.replace(/_/g, " ")}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex h-9 items-center gap-1.5">
+          {quick && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               disabled={statusMutation.isPending}
-              onChange={(e) => {
-                const next = e.target.value as ReservationRoomStatus;
-                // Cancel / no-show end the stay — confirm first; the select
-                // stays on the current status until the change is applied.
-                if (DESTRUCTIVE_STATUSES.includes(next)) {
-                  setPendingStatus(next);
-                } else {
-                  statusMutation.mutate({ roomId: room.id, status: next });
-                }
-              }}
+              onClick={() =>
+                statusMutation.mutate({ roomId: room.id, status: quick.next })
+              }
             >
-              {ROOM_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s.replace(/_/g, " ")}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-        <div className="flex h-9 items-center gap-1">
-          {statusMutation.isPending && <Spinner />}
+              {statusMutation.isPending ? (
+                <Spinner />
+              ) : (
+                QuickIcon && <QuickIcon className="h-3.5 w-3.5" />
+              )}
+              {quick.label}
+            </Button>
+          )}
           {canRemove && (
             <Button
               type="button"
