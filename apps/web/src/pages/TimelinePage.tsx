@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -60,6 +61,14 @@ const STATUS_FILTERS: { key: string; label: string; dot: string }[] = [
   { key: "available", label: "Available", dot: "bg-emerald-500" },
   { key: "maintenance", label: "Maintenance", dot: "bg-amber-500" },
   { key: "out_of_order", label: "Out of order", dot: "bg-red-500" },
+];
+
+// What the reservation-bar colours mean — shown as a legend in the grid's
+// top-left corner (distinct from the room-status pills above).
+const RES_STATUS_LEGEND: { color: string; label: string }[] = [
+  { color: "bg-sky-400", label: "Confirmed" },
+  { color: "bg-teal-400", label: "Checked in" },
+  { color: "bg-neutral-400", label: "Checked out" },
 ];
 
 interface RoomGroup {
@@ -339,8 +348,21 @@ export function TimelinePage() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <div className="w-44 text-center text-sm font-medium">
+                  {/* Click the range to jump to any date (a native picker
+                      overlaid on the label, so it works without showPicker). */}
+                  <div className="relative flex w-44 cursor-pointer items-center justify-center gap-1.5 rounded-lg py-1 text-sm font-medium transition-colors hover:bg-accent">
+                    <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     {rangeLabel}
+                    <input
+                      type="date"
+                      aria-label="Jump to date"
+                      value={toApiDate(start)}
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        setStart(midnight(parseApiDate(e.target.value)));
+                      }}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                    />
                   </div>
                   <Button
                     variant="outline"
@@ -380,9 +402,19 @@ export function TimelinePage() {
                   style={{ height: HEADER_H }}
                 >
                   <div
-                    className="sticky left-0 z-30 shrink-0 border-r border-border bg-card"
+                    className="sticky left-0 z-30 flex shrink-0 flex-col justify-center gap-1 border-r border-border bg-card px-3"
                     style={{ width: LEFT_W }}
-                  />
+                  >
+                    {RES_STATUS_LEGEND.map((x) => (
+                      <span
+                        key={x.label}
+                        className="flex items-center gap-1.5 text-[10px] leading-none text-muted-foreground"
+                      >
+                        <span className={cn("h-2 w-3 rounded-[3px]", x.color)} />
+                        {x.label}
+                      </span>
+                    ))}
+                  </div>
                   {days.map((d) => {
                     const isToday = d.getTime() === today.getTime();
                     const weekend = d.getDay() === 0 || d.getDay() === 6;
