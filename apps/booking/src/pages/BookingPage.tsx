@@ -300,7 +300,7 @@ export function BookingPage() {
       ) : (
         <div
           className={cn(
-            "mt-6 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start",
+            "mt-6 grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start",
             // Reserve room for the mobile sticky bar so it never covers content.
             !embed && step === "browse" && cart.length > 0 && "pb-24 lg:pb-0",
           )}
@@ -374,7 +374,7 @@ export function BookingPage() {
               below the whole room list, so surface the total + CTA here. */}
           {!embed && step === "browse" && cart.length > 0 && (
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-4 py-3 shadow-[0_-4px_12px_rgba(16,24,40,0.08)] backdrop-blur lg:hidden">
-              <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+              <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
                 <div className="leading-tight">
                   <div className="text-xs text-muted-foreground">
                     {cart.length} room{cart.length === 1 ? "" : "s"} ·{" "}
@@ -418,7 +418,7 @@ function Shell({
           we drop them and let the engine fill the iframe. */}
       {!embed && (
         <header className="bg-primary text-primary-foreground">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
             <div className="flex items-center gap-2">
               <span className="flex size-9 items-center justify-center rounded-xl bg-primary-foreground/15">
                 <BedDouble className="h-5 w-5" />
@@ -450,7 +450,7 @@ function Shell({
           pages usually present their search box. */}
       <main
         className={cn(
-          "mx-auto max-w-5xl px-4",
+          "mx-auto max-w-7xl px-4",
           embed ? "py-4" : showBanner ? "relative z-10 -mt-12 pb-10" : "py-6",
         )}
       >
@@ -461,7 +461,7 @@ function Shell({
           accent); Alojaneo is credited discreetly in the footer. Dropped in
           embed mode, where the hotel's site owns the surrounding chrome. */}
       {!embed && (
-        <footer className="mx-auto max-w-5xl px-4 pb-8 pt-4">
+        <footer className="mx-auto max-w-7xl px-4 pb-8 pt-4">
           <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <span>Powered by</span>
             <img
@@ -570,7 +570,7 @@ function RoomTypeCard({
 
   return (
     <Card className="overflow-hidden">
-      <div className="grid gap-0 sm:grid-cols-[16rem_1fr]">
+      <div className="grid gap-0 sm:grid-cols-[18rem_1fr]">
         <PhotoGallery photos={roomType.photos} alt={roomType.name} />
 
         <div className="flex flex-col p-5">
