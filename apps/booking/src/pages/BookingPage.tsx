@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   BedDouble,
@@ -7,6 +7,8 @@ import {
   Check,
   CheckCircle2,
   ImageOff,
+  Minus,
+  Plus,
   Users,
 } from "lucide-react";
 import { Button, Card, Field, Input, Select, Spinner } from "../components/ui";
@@ -189,6 +191,30 @@ export function BookingPage() {
   function removeLine(key: string) {
     setCart((prev) => prev.filter((l) => l.key !== key));
   }
+  // Remove one line matching a room type + rate plan (the stepper's minus).
+  function removeOneByRate(roomTypeId: string, ratePlanId: string) {
+    setCart((prev) => {
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (
+          prev[i].item.roomType.id === roomTypeId &&
+          prev[i].ratePlan.id === ratePlanId
+        ) {
+          return prev.filter((_, j) => j !== i);
+        }
+      }
+      return prev;
+    });
+  }
+
+  // On mobile the summary/checkout rail sits below the room list, so the sticky
+  // bottom bar scrolls to it when the guest continues.
+  const checkoutRef = useRef<HTMLDivElement>(null);
+  function goToCheckout() {
+    setStep("checkout");
+    requestAnimationFrame(() =>
+      checkoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }
 
   const total = cart.reduce(
     (sum, l) => sum + l.ratePlan.baseRateCents * Math.max(stayNights, 1),
@@ -272,7 +298,13 @@ export function BookingPage() {
       {!submitted ? (
         <EmptyPrompt />
       ) : (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start">
+        <div
+          className={cn(
+            "mt-6 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start",
+            // Reserve room for the mobile sticky bar so it never covers content.
+            !embed && step === "browse" && cart.length > 0 && "pb-24 lg:pb-0",
+          )}
+        >
           {/* Results */}
           <div className="space-y-4">
             {availability.isLoading ? (
@@ -298,15 +330,18 @@ export function BookingPage() {
                   key={item.roomType.id}
                   item={item}
                   nights={stayNights}
-                  inCart={cart.filter((l) => l.item.roomType.id === item.roomType.id).length}
+                  lines={cart.filter(
+                    (l) => l.item.roomType.id === item.roomType.id,
+                  )}
                   onAdd={(rp) => addLine(item, rp)}
+                  onRemoveOne={(rp) => removeOneByRate(item.roomType.id, rp.id)}
                 />
               ))
             )}
           </div>
 
           {/* Summary / checkout rail */}
-          <aside className="lg:sticky lg:top-6">
+          <aside ref={checkoutRef} className="lg:sticky lg:top-6">
             {step === "browse" ? (
               <CartSummary
                 cart={cart}
@@ -334,6 +369,27 @@ export function BookingPage() {
               />
             )}
           </aside>
+
+          {/* Mobile sticky action bar — on small screens the summary rail is
+              below the whole room list, so surface the total + CTA here. */}
+          {!embed && step === "browse" && cart.length > 0 && (
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-4 py-3 shadow-[0_-4px_12px_rgba(16,24,40,0.08)] backdrop-blur lg:hidden">
+              <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+                <div className="leading-tight">
+                  <div className="text-xs text-muted-foreground">
+                    {cart.length} room{cart.length === 1 ? "" : "s"} ·{" "}
+                    {stayNights} night{stayNights === 1 ? "" : "s"}
+                  </div>
+                  <div className="text-lg font-bold tabular-nums">
+                    {formatMoney(total, currency)}
+                  </div>
+                </div>
+                <Button type="button" size="lg" onClick={goToCheckout}>
+                  Continue
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </Shell>
@@ -374,12 +430,6 @@ function Shell({
                 </div>
               </div>
             </div>
-            <Link
-              to="/"
-              className="text-sm text-primary-foreground/80 hover:text-primary-foreground"
-            >
-              Change hotel
-            </Link>
           </div>
         </header>
       )}
@@ -505,16 +555,18 @@ function EmptyPrompt() {
 function RoomTypeCard({
   item,
   nights: stayNights,
-  inCart,
+  lines,
   onAdd,
+  onRemoveOne,
 }: {
   item: AvailabilityItem;
   nights: number;
-  inCart: number;
+  lines: CartLine[];
   onAdd: (ratePlan: AvailabilityRatePlan) => void;
+  onRemoveOne: (ratePlan: AvailabilityRatePlan) => void;
 }) {
   const { roomType, availableCount, ratePlans } = item;
-  const remaining = availableCount - inCart;
+  const remaining = availableCount - lines.length;
 
   return (
     <Card className="overflow-hidden">
@@ -572,47 +624,82 @@ function RoomTypeCard({
                 No online rates for these dates.
               </p>
             ) : (
-              ratePlans.map((rp) => (
-                <div
-                  key={rp.id}
-                  className="flex flex-wrap items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">{rp.name}</div>
-                    {rp.cancellationPolicy && (
-                      <div className="text-xs text-muted-foreground">
-                        {rp.cancellationPolicy}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-sm font-semibold tabular-nums">
-                        {formatMoney(rp.baseRateCents, rp.currency)}
-                        <span className="font-normal text-muted-foreground">
-                          {" "}
-                          / night
-                        </span>
-                      </div>
-                      {stayNights > 0 && (
-                        <div className="text-xs text-muted-foreground tabular-nums">
-                          {formatMoney(rp.baseRateCents * stayNights, rp.currency)}{" "}
-                          total
+              ratePlans.map((rp) => {
+                const qty = lines.filter(
+                  (l) => l.ratePlan.id === rp.id,
+                ).length;
+                return (
+                  <div
+                    key={rp.id}
+                    className="flex flex-wrap items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{rp.name}</div>
+                      {rp.cancellationPolicy && (
+                        <div className="text-xs text-muted-foreground">
+                          {rp.cancellationPolicy}
                         </div>
                       )}
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="px-7"
-                      disabled={remaining <= 0}
-                      onClick={() => onAdd(rp)}
-                    >
-                      Add
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-sm font-semibold tabular-nums">
+                          {formatMoney(rp.baseRateCents, rp.currency)}
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            / night
+                          </span>
+                        </div>
+                        {stayNights > 0 && (
+                          <div className="text-xs text-muted-foreground tabular-nums">
+                            {formatMoney(
+                              rp.baseRateCents * stayNights,
+                              rp.currency,
+                            )}{" "}
+                            total
+                          </div>
+                        )}
+                      </div>
+                      {qty > 0 ? (
+                        // Selected → quantity stepper (clear "it's in your cart"
+                        // feedback, and adjust without scrolling to the rail).
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            aria-label={`Remove one ${rp.name}`}
+                            onClick={() => onRemoveOne(rp)}
+                            className="flex size-8 items-center justify-center rounded-full border border-input text-foreground transition-colors hover:bg-muted"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="w-5 text-center text-sm font-semibold tabular-nums">
+                            {qty}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Add one ${rp.name}`}
+                            disabled={remaining <= 0}
+                            onClick={() => onAdd(rp)}
+                            className="flex size-8 items-center justify-center rounded-full border border-input text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="px-7"
+                          disabled={remaining <= 0}
+                          onClick={() => onAdd(rp)}
+                        >
+                          Add
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -764,6 +851,7 @@ function CheckoutForm({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const stayNights = nights(submitted.checkIn, submitted.checkOut);
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -813,6 +901,38 @@ function CheckoutForm({
       <h3 className="mt-2 text-base font-semibold tracking-tight">
         Guest details
       </h3>
+
+      {/* Order summary — keep the rooms + dates in view while entering details. */}
+      <div className="mt-3 rounded-2xl bg-muted/50 p-3">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+          {formatDate(submitted.checkIn)} → {formatDate(submitted.checkOut)}
+          <span aria-hidden>·</span>
+          {stayNights} night{stayNights === 1 ? "" : "s"}
+        </div>
+        <ul className="mt-2 space-y-1">
+          {cart.map((l) => (
+            <li
+              key={l.key}
+              className="flex items-baseline justify-between gap-2 text-sm"
+            >
+              <span className="min-w-0 truncate">
+                {l.item.roomType.name}
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {l.ratePlan.name}
+                </span>
+              </span>
+              <span className="shrink-0 tabular-nums">
+                {formatMoney(
+                  l.ratePlan.baseRateCents * Math.max(stayNights, 1),
+                  currency,
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <form onSubmit={submit} className="mt-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
