@@ -3,28 +3,15 @@ import { z } from "zod";
 import { sqlUnscoped, withTenant } from "../db.js";
 import { computeDepositCents, getPaymentAdapter } from "../payments/index.js";
 import { settlePayment } from "../payments/settle.js";
-import { getMailer, type BookingConfirmationData } from "../mail/index.js";
+import {
+  nightsBetween,
+  sendBookingConfirmation as sendConfirmationEmail,
+} from "../mail/notify.js";
 
 // Where the booking engine lives — the gateway returns the guest here after
 // paying, carrying our pay_return=<reservationId> plus the gateway's ids.
 const bookingBaseUrl = () =>
   process.env.BOOKING_PUBLIC_URL ?? "http://localhost:5174";
-
-const nightsBetween = (from: string, to: string) =>
-  Math.max(
-    1,
-    Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000),
-  );
-
-// Best-effort confirmation email — a mail hiccup never affects the booking.
-function sendConfirmationEmail(to: string, data: BookingConfirmationData): void {
-  void getMailer()
-    .sendBookingConfirmation(to, data)
-    .catch((err) => {
-      // eslint-disable-next-line no-console
-      console.error("[mail] booking confirmation failed:", (err as Error).message);
-    });
-}
 
 const availabilityQuerySchema = z.object({
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "checkIn must be YYYY-MM-DD"),
@@ -418,7 +405,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
             (hotel_id, reservation_id, amount_cents, currency, method, provider, status, client_tx_id, provider_tx_id)
           values
             (${hotelId}, ${result.reservationId}, ${depositCents}, ${currency}, 'card', ${adapter.name}, ${intent.status}, ${intent.clientTxId},
-             ${intent.status === "completed" ? intent.clientTxId : null})
+             ${intent.providerTxId ?? (intent.status === "completed" ? intent.clientTxId : null)})
         `,
       );
 

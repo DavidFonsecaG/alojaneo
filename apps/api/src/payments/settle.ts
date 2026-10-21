@@ -17,6 +17,7 @@ export interface SettleOutcome {
   checkOut?: string;
   totalCents?: number;
   amountCents?: number;
+  currency?: string;
 }
 
 // Apply a gateway confirm/webhook result to the pending charge identified by
@@ -33,11 +34,11 @@ export async function settlePayment(
   return withTenant(hotelId, async (tx) => {
     const [pay] = await tx`
       select
-        p.id, p.status, p.amount_cents, p.reservation_id,
+        p.id, p.status, p.amount_cents, p.currency, p.reservation_id,
         r.booking_ref, r.total_amount_cents,
         g.first_name, g.last_name, g.email,
-        (select min(check_in) from reservation_rooms where reservation_id = r.id) as check_in,
-        (select max(check_out) from reservation_rooms where reservation_id = r.id) as check_out
+        (select to_char(min(check_in), 'YYYY-MM-DD') from reservation_rooms where reservation_id = r.id) as check_in,
+        (select to_char(max(check_out), 'YYYY-MM-DD') from reservation_rooms where reservation_id = r.id) as check_out
       from payments p
       join reservations r on r.id = p.reservation_id
       join guests g on g.id = r.guest_id
@@ -62,6 +63,7 @@ export async function settlePayment(
       checkOut: String(pay.check_out).slice(0, 10),
       totalCents: pay.total_amount_cents as number,
       amountCents: pay.amount_cents as number,
+      currency: (pay.currency as string) ?? "USD",
     };
 
     // Already resolved → idempotent no-op (a replayed return or a late webhook).

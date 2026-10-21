@@ -6,6 +6,7 @@ import {
   saveHotelPaymentConfig,
   type HotelPaymentConfig,
 } from "../payments/index.js";
+import { reconcileHotelPayments } from "../payments/reconcile.js";
 
 const PROVIDERS = ["mock", "kushki", "payphone"] as const;
 
@@ -61,5 +62,11 @@ export async function hotelPaymentRoutes(app: FastifyInstance) {
     const cfg = await getHotelPaymentConfig(req.hotelId);
     if (!cfg) return reply.code(404).send({ error: "Hotel not found" });
     return toView(cfg);
+  });
+
+  // Manually sweep stuck 'pending' deposits via the gateway's status API.
+  // (A scheduled job can hit this per hotel later.)
+  app.post("/hotel/payment-settings/reconcile", async (req) => {
+    return reconcileHotelPayments(req.hotelId);
   });
 }

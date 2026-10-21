@@ -1,5 +1,6 @@
 import { MockPaymentAdapter } from "./mockAdapter.js";
 import { PayPhonePaymentAdapter } from "./payphoneAdapter.js";
+import { KushkiPaymentAdapter } from "./kushkiAdapter.js";
 import { getHotelPaymentConfig } from "./config.js";
 import type { PaymentAdapter } from "./types.js";
 
@@ -35,12 +36,7 @@ export async function getPaymentAdapter(
     // PayPhone's Bearer token + storeId map onto our private/public key fields.
     adapter = new PayPhonePaymentAdapter(cfg.privateKey, cfg.publicKey ?? "");
   } else if (active === "kushki" && cfg?.privateKey) {
-    // The Kushki adapter is added in a later step; mock until then.
-    // eslint-disable-next-line no-console
-    console.warn(
-      "[payments] Kushki adapter not wired yet — using the mock gateway.",
-    );
-    adapter = mock;
+    adapter = new KushkiPaymentAdapter(cfg.privateKey, cfg.publicKey ?? "");
   } else {
     adapter = mock;
   }

@@ -15,6 +15,7 @@ import { userRoutes } from "./routes/users.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { meRoutes } from "./routes/me.js";
 import { publicBookingRoutes } from "./routes/publicBooking.js";
+import { webhookRoutes } from "./routes/webhooks.js";
 import { platformRoutes } from "./routes/platform.js";
 
 export function buildApp() {
@@ -33,8 +34,12 @@ export function buildApp() {
       });
     }
     const status = (err as { statusCode?: number }).statusCode ?? 500;
-    // Surface intentional client-error messages (e.g. 409 conflicts); keep
-    // unexpected 500s generic so internals aren't leaked.
+    // Log unexpected 500s (stack to the server console); keep the client
+    // response generic so internals aren't leaked.
+    if (status >= 500) {
+      // eslint-disable-next-line no-console
+      console.error("[api] 500:", (err as Error).stack ?? err);
+    }
     const message =
       status >= 500 ? "Server error" : ((err as Error).message ?? "Error");
     return reply.code(status).send({ error: message });
@@ -45,6 +50,7 @@ export function buildApp() {
   // Public routes (no auth)
   app.register(authRoutes);
   app.register(publicBookingRoutes);
+  app.register(webhookRoutes);
   app.register(platformRoutes);
 
   // Authenticated routes

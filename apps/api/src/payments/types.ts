@@ -18,16 +18,22 @@ export interface CreateIntentRequest {
   customerEmail?: string;
   // Where the gateway returns the guest after paying (carries our clientTxId).
   returnUrl: string;
+  // Token-based gateways (Kushki): the card token minted client-side by the
+  // gateway's SDK. Redirect gateways (PayPhone) ignore it.
+  paymentToken?: string;
 }
 
 export interface PaymentIntent {
   // "completed" settled instantly; "pending" needs the redirect + confirm hop;
   // "failed" was declined at creation.
   status: PaymentStatus;
-  // Our handle for this attempt — stored on payments.reference until confirmed.
+  // Our handle for this attempt — stored on payments.client_tx_id.
   clientTxId: string;
   // Present when the guest must be sent to the gateway's hosted checkout.
   redirectUrl: string | null;
+  // The gateway's transaction id when it settled instantly (a token charge);
+  // null for redirect flows, where settlePayment fills it on confirm.
+  providerTxId?: string | null;
   error?: string;
 }
 
@@ -50,8 +56,18 @@ export interface RefundResult {
   error?: string;
 }
 
+// A settlement event parsed from an inbound gateway webhook (normalised across
+// providers). eventId drives idempotency; clientTxId maps back to our payment.
+export interface WebhookEvent {
+  eventId: string;
+  clientTxId: string;
+  providerTxId: string;
+  status: PaymentStatus; // completed | failed | pending
+  amountCents?: number; // for cross-checking the expected amount
+}
+
 export interface PaymentAdapter {
-  // Stored as payments.method so the source of a payment is auditable.
+  // Stored as payments.provider so the source of a payment is auditable.
   readonly name: string;
   createIntent(req: CreateIntentRequest): Promise<PaymentIntent>;
   confirm(req: ConfirmRequest): Promise<ConfirmResult>;
@@ -59,4 +75,17 @@ export interface PaymentAdapter {
     originalTransactionId: string,
     amountCents: number,
   ): Promise<RefundResult>;
+  // Verify + normalise an inbound webhook. Returns null when the signature is
+  // invalid or the payload isn't a settlement event we handle.
+  parseWebhook(
+    raw: Buffer,
+    headers: Record<string, string>,
+    secret: string,
+  ): WebhookEvent | null;
+  // Poll the gateway for a transaction's current status — the reconciliation
+  // fallback for payments stuck 'pending' (guest never returned, no webhook).
+  getStatus(ref: {
+    clientTxId: string;
+    providerTxId?: string;
+  }): Promise<ConfirmResult>;
 }

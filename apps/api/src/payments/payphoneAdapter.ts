@@ -5,6 +5,7 @@ import type {
   PaymentAdapter,
   PaymentIntent,
   RefundResult,
+  WebhookEvent,
 } from "./types.js";
 
 // PayPhone ("Cajita de pagos" / Button) adapter — Ecuador's common gateway.
@@ -156,5 +157,20 @@ export class PayPhonePaymentAdapter implements PaymentAdapter {
         error: (err as Error).message,
       };
     }
+  }
+
+  // PayPhone settles through the return-URL confirm, not signed webhooks.
+  parseWebhook(): WebhookEvent | null {
+    return null;
+  }
+
+  // No cheap status-by-clientTx lookup without the provider id; report
+  // 'pending' so reconciliation leaves the payment untouched rather than
+  // wrongly cancelling it. TODO(sandbox): wire PayPhone's status endpoint.
+  async getStatus(ref: {
+    clientTxId: string;
+    providerTxId?: string;
+  }): Promise<ConfirmResult> {
+    return { status: "pending", transactionId: ref.providerTxId ?? ref.clientTxId };
   }
 }

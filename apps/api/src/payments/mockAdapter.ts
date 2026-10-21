@@ -6,6 +6,7 @@ import type {
   PaymentAdapter,
   PaymentIntent,
   RefundResult,
+  WebhookEvent,
 } from "./types.js";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -59,5 +60,39 @@ export class MockPaymentAdapter implements PaymentAdapter {
   ): Promise<RefundResult> {
     await delay(100);
     return { status: "refunded", transactionId: `mock_re_${randomUUID()}` };
+  }
+
+  // The mock settles instantly, so a stuck 'pending' is always "completed".
+  async getStatus(ref: {
+    clientTxId: string;
+    providerTxId?: string;
+  }): Promise<ConfirmResult> {
+    return {
+      status: "completed",
+      transactionId: ref.providerTxId ?? ref.clientTxId,
+    };
+  }
+
+  // A tiny test webhook: a JSON body of { clientTxId, status?, eventId? }
+  // settles that payment, so the webhook route can be exercised without a real
+  // gateway. No signature to verify.
+  parseWebhook(raw: Buffer): WebhookEvent | null {
+    try {
+      const b = JSON.parse(raw.toString("utf8")) as {
+        clientTxId?: string;
+        status?: string;
+        eventId?: string;
+      };
+      if (!b.clientTxId) return null;
+      const status = b.status === "failed" ? "failed" : "completed";
+      return {
+        eventId: b.eventId ?? `mock_evt_${b.clientTxId}`,
+        clientTxId: b.clientTxId,
+        providerTxId: b.clientTxId,
+        status,
+      };
+    } catch {
+      return null;
+    }
   }
 }
