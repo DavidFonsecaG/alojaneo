@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { sqlUnscoped, withTenant } from "../db.js";
 import { computeDepositCents, getPaymentAdapter } from "../payments/index.js";
+import { settlePayment } from "../payments/settle.js";
 import { getMailer, type BookingConfirmationData } from "../mail/index.js";
 
 // Where the booking engine lives — the gateway returns the guest here after
@@ -407,11 +408,17 @@ export async function publicBookingRoutes(app: FastifyInstance) {
         returnUrl,
       });
 
-      // Record the attempt. reference holds the clientTxId until confirmed.
+      // Record the attempt with the new lifecycle columns: `method` is how
+      // (card), `provider` is who processed it, `client_tx_id` is our stable
+      // handle; `provider_tx_id` is filled now only when it settled instantly
+      // (the mock), otherwise by settlePayment() after confirm.
       await withTenant(hotelId, (tx) =>
         tx`
-          insert into payments (hotel_id, reservation_id, amount_cents, currency, method, status, reference)
-          values (${hotelId}, ${result.reservationId}, ${depositCents}, ${currency}, ${adapter.name}, ${intent.status}, ${intent.clientTxId})
+          insert into payments
+            (hotel_id, reservation_id, amount_cents, currency, method, provider, status, client_tx_id, provider_tx_id)
+          values
+            (${hotelId}, ${result.reservationId}, ${depositCents}, ${currency}, 'card', ${adapter.name}, ${intent.status}, ${intent.clientTxId},
+             ${intent.status === "completed" ? intent.clientTxId : null})
         `,
       );
 
@@ -477,73 +484,68 @@ export async function publicBookingRoutes(app: FastifyInstance) {
       `;
       if (!hotel) return reply.code(404).send({ error: "Hotel not found" });
 
-      const [pay] = await withTenant(hotel.id, (tx) =>
+      // Pre-check: short-circuit an already-completed payment without a
+      // redundant gateway round-trip, and fetch the amount for confirm().
+      const [pre] = await withTenant(hotel.id, (tx) =>
         tx`
-          select
-            p.id, p.amount_cents, p.currency, p.status,
-            r.booking_ref, r.total_amount_cents,
-            g.first_name, g.last_name, g.email,
-            (select min(check_in) from reservation_rooms where reservation_id = r.id) as check_in,
-            (select max(check_out) from reservation_rooms where reservation_id = r.id) as check_out
+          select p.status, p.amount_cents, p.currency, r.booking_ref
           from payments p
           join reservations r on r.id = p.reservation_id
-          join guests g on g.id = r.guest_id
-          where p.reservation_id = ${reservationId} and p.reference = ${body.clientTxId}
+          where p.reservation_id = ${reservationId}
+            and p.client_tx_id = ${body.clientTxId}
+            and p.kind = 'charge'
         `,
       );
-      if (!pay) return reply.code(404).send({ error: "Payment not found" });
-      if (pay.status === "completed") {
-        return reply.send({ status: "completed", bookingRef: pay.booking_ref });
+      if (!pre) return reply.code(404).send({ error: "Payment not found" });
+      if (pre.status === "completed") {
+        return reply.send({ status: "completed", bookingRef: pre.booking_ref });
       }
-      if (pay.status !== "pending") {
-        return reply.code(409).send({ error: `Payment is ${pay.status}` });
+      if (pre.status !== "pending") {
+        return reply.code(409).send({ error: `Payment is ${pre.status}` });
       }
 
       const adapter = await getPaymentAdapter(hotel.id);
       const confirmed = await adapter.confirm({
         clientTxId: body.clientTxId,
         providerTxId: body.providerTxId,
-        amountCents: pay.amount_cents,
-        currency: pay.currency,
+        amountCents: pre.amount_cents,
+        currency: pre.currency,
       });
 
-      await withTenant(hotel.id, (tx) =>
-        tx`update payments set status = ${confirmed.status}, reference = ${confirmed.transactionId} where id = ${pay.id}`,
-      );
+      // The single settlement path: writes status + provider_tx_id, releases
+      // rooms on failure, idempotent across confirm/webhook/reconcile.
+      const outcome = await settlePayment(hotel.id, body.clientTxId, confirmed);
 
-      if (confirmed.status !== "completed") {
-        await withTenant(hotel.id, (tx) =>
-          tx`update reservation_rooms set status = 'cancelled' where reservation_id = ${reservationId}`,
-        );
+      if (outcome.status !== "completed") {
         return reply.code(402).send({
           error: confirmed.error ?? "Payment was not completed.",
-          bookingRef: pay.booking_ref,
+          bookingRef: outcome.bookingRef ?? pre.booking_ref,
         });
       }
 
-      const total = pay.total_amount_cents as number;
-      const checkIn = String(pay.check_in).slice(0, 10);
-      const checkOut = String(pay.check_out).slice(0, 10);
-      if (pay.email) {
-        sendConfirmationEmail(pay.email, {
-          bookingRef: pay.booking_ref,
+      const total = outcome.totalCents ?? 0;
+      const paid = outcome.amountCents ?? pre.amount_cents;
+      // Email only when this call is the one that completed it (not on replay).
+      if (outcome.transitioned && outcome.guest?.email) {
+        sendConfirmationEmail(outcome.guest.email, {
+          bookingRef: outcome.bookingRef!,
           hotelName: hotel.name,
-          guestName: `${pay.first_name} ${pay.last_name}`,
-          checkIn,
-          checkOut,
-          nights: nightsBetween(checkIn, checkOut),
+          guestName: `${outcome.guest.firstName} ${outcome.guest.lastName}`,
+          checkIn: outcome.checkIn!,
+          checkOut: outcome.checkOut!,
+          nights: nightsBetween(outcome.checkIn!, outcome.checkOut!),
           totalCents: total,
-          paidCents: pay.amount_cents,
-          balanceCents: total - pay.amount_cents,
-          currency: pay.currency,
+          paidCents: paid,
+          balanceCents: total - paid,
+          currency: pre.currency,
         });
       }
 
       return reply.send({
         status: "completed",
-        bookingRef: pay.booking_ref,
-        paidCents: pay.amount_cents,
-        balanceCents: total - pay.amount_cents,
+        bookingRef: outcome.bookingRef,
+        paidCents: paid,
+        balanceCents: total - paid,
       });
     },
   );

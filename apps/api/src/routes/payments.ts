@@ -19,11 +19,12 @@ export async function paymentRoutes(app: FastifyInstance) {
   app.post("/payments", async (req, reply) => {
     const body = createPaymentSchema.parse(req.body);
 
+    // Recorded at the desk (cash/card/transfer) → provider 'manual'.
     const [payment] = await withTenant(req.hotelId, (tx) =>
       tx`
-        insert into payments (hotel_id, reservation_id, amount_cents, currency, method, reference)
-        values (${req.hotelId}, ${body.reservationId}, ${body.amountCents}, ${body.currency}, ${body.method}, ${body.reference ?? null})
-        returning id, reservation_id, amount_cents, currency, method, status, reference, created_at
+        insert into payments (hotel_id, reservation_id, amount_cents, currency, method, provider, reference)
+        values (${req.hotelId}, ${body.reservationId}, ${body.amountCents}, ${body.currency}, ${body.method}, 'manual', ${body.reference ?? null})
+        returning id, reservation_id, amount_cents, currency, method, provider, kind, status, reference, created_at
       `,
     );
 
@@ -39,7 +40,7 @@ export async function paymentRoutes(app: FastifyInstance) {
       tx`
         select
           p.id, p.reservation_id, p.amount_cents, p.currency, p.method,
-          p.status, p.reference, p.created_at,
+          p.provider, p.kind, p.status, p.reference, p.created_at,
           r.booking_ref,
           g.first_name as guest_first_name,
           g.last_name as guest_last_name
@@ -56,7 +57,7 @@ export async function paymentRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
 
     const [payment] = await withTenant(req.hotelId, (tx) =>
-      tx`select id, reservation_id, amount_cents, currency, method, status, reference, created_at
+      tx`select id, reservation_id, amount_cents, currency, method, provider, kind, status, reference, created_at
          from payments where id = ${id}`,
     );
 
