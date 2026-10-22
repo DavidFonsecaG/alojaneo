@@ -110,7 +110,9 @@ describe("payments: deposits, ledger, refunds", () => {
     const rows = JSON.parse(res.body);
     expect(rows).toHaveLength(1);
     expect(rows[0].status).toBe("completed");
-    expect(rows[0].method).toBe("mock");
+    // Lifecycle split: `method` is how (card), `provider` is who processed it.
+    expect(rows[0].method).toBe("card");
+    expect(rows[0].provider).toBe("mock");
     expect(rows[0].booking_ref).toMatch(/^BK-/);
     expect(rows[0].guest_last_name).toBe("Guest");
   });
@@ -122,7 +124,7 @@ describe("payments: deposits, ledger, refunds", () => {
     expect(body.error).toMatch(/declin/i);
   });
 
-  it("refunds a completed payment, then rejects a second refund", async () => {
+  it("refunds a completed payment as a row, then rejects a second refund", async () => {
     const payment = JSON.parse(
       (
         await app.inject({
@@ -133,14 +135,41 @@ describe("payments: deposits, ledger, refunds", () => {
       ).body,
     )[0];
 
+    // A refund is its own completed row with a negative amount, pointed at the
+    // charge it reverses; the original charge is left untouched.
     const refund = await app.inject({
       method: "POST",
       url: `/payments/${payment.id}/refund`,
       headers: auth(),
     });
-    expect(refund.statusCode).toBe(200);
-    expect(JSON.parse(refund.body).status).toBe("refunded");
+    expect(refund.statusCode).toBe(201);
+    const refundRow = JSON.parse(refund.body);
+    expect(refundRow.kind).toBe("refund");
+    expect(refundRow.status).toBe("completed");
+    expect(refundRow.amount_cents).toBe(-payment.amount_cents);
+    expect(refundRow.parent_payment_id).toBe(payment.id);
 
+    // The ledger now nets to zero for this reservation: charge + refund row.
+    const rows = JSON.parse(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/payments?reservationId=${reservationId}`,
+          headers: auth(),
+        })
+      ).body,
+    );
+    const net = rows.reduce(
+      (s: number, r: { amount_cents: number; status: string }) =>
+        r.status === "completed" ? s + r.amount_cents : s,
+      0,
+    );
+    expect(net).toBe(0);
+    expect(rows.find((r: { id: string }) => r.id === payment.id).status).toBe(
+      "completed",
+    );
+
+    // Nothing left to refund on the original charge.
     const again = await app.inject({
       method: "POST",
       url: `/payments/${payment.id}/refund`,
@@ -164,8 +193,58 @@ describe("payments: deposits, ledger, refunds", () => {
       url: `/payments/${id}/refund`,
       headers: auth(),
     });
-    expect(refund.statusCode).toBe(200);
-    expect(JSON.parse(refund.body).status).toBe("refunded");
+    expect(refund.statusCode).toBe(201);
+    const refundRow = JSON.parse(refund.body);
+    expect(refundRow.kind).toBe("refund");
+    expect(refundRow.status).toBe("completed");
+    expect(refundRow.amount_cents).toBe(-5000);
+    expect(refundRow.parent_payment_id).toBe(id);
+  });
+
+  it("refunds a charge partially, then refunds the remainder", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/payments",
+      headers: auth(),
+      payload: { reservationId, amountCents: 8000, method: "cash" },
+    });
+    const id = JSON.parse(created.body).id;
+
+    // Partial refund — half of it.
+    const part = await app.inject({
+      method: "POST",
+      url: `/payments/${id}/refund`,
+      headers: auth(),
+      payload: { amountCents: 3000 },
+    });
+    expect(part.statusCode).toBe(201);
+    expect(JSON.parse(part.body).amount_cents).toBe(-3000);
+
+    // Over-refunding the remaining 5000 is rejected.
+    const tooMuch = await app.inject({
+      method: "POST",
+      url: `/payments/${id}/refund`,
+      headers: auth(),
+      payload: { amountCents: 6000 },
+    });
+    expect(tooMuch.statusCode).toBe(409);
+
+    // Refunding the exact remainder (no amount = all that's left) works.
+    const rest = await app.inject({
+      method: "POST",
+      url: `/payments/${id}/refund`,
+      headers: auth(),
+    });
+    expect(rest.statusCode).toBe(201);
+    expect(JSON.parse(rest.body).amount_cents).toBe(-5000);
+
+    // And now it's fully refunded.
+    const again = await app.inject({
+      method: "POST",
+      url: `/payments/${id}/refund`,
+      headers: auth(),
+    });
+    expect(again.statusCode).toBe(409);
   });
 
   it("returns a redirect for a gateway that needs one, then confirms it", async () => {

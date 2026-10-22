@@ -125,7 +125,16 @@ export function PaymentsPage() {
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return all.filter((p) => {
-      if (status && p.status !== status) return false;
+      // Refunds are their own completed rows (kind='refund'); the "Refunded"
+      // chip selects them, and "Completed" means completed charges, so the two
+      // chips stay disjoint.
+      if (status === "refunded") {
+        if (p.kind !== "refund") return false;
+      } else if (status === "completed") {
+        if (p.status !== "completed" || p.kind === "refund") return false;
+      } else if (status && p.status !== status) {
+        return false;
+      }
       if (method && p.method !== method) return false;
       if (q) {
         const hay = `${p.guest_first_name ?? ""} ${p.guest_last_name ?? ""} ${
@@ -139,9 +148,28 @@ export function PaymentsPage() {
 
   const sorted = useMemo(() => sortRows(rows, sort, paymentValue), [rows, sort]);
 
-  // Totals over the filtered rows.
-  const collected = sumWhere(rows, "completed");
-  const refunded = sumWhere(rows, "refunded");
+  // How much has been refunded against each charge (across all rows, not just
+  // the filtered ones) so the refund button knows what's left to refund.
+  const refundedByCharge = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of all) {
+      if (p.kind === "refund" && p.status === "completed" && p.parent_payment_id) {
+        m.set(p.parent_payment_id, (m.get(p.parent_payment_id) ?? 0) - p.amount_cents);
+      }
+    }
+    return m;
+  }, [all]);
+
+  // Totals over the filtered rows. Charges are positive, refunds negative, so
+  // collected sums the positives, refunded the magnitude of the negatives, and
+  // net is simply everything added up.
+  const completed = rows.filter((p) => p.status === "completed");
+  const collected = completed
+    .filter((p) => p.amount_cents > 0)
+    .reduce((s, p) => s + p.amount_cents, 0);
+  const refunded = completed
+    .filter((p) => p.amount_cents < 0)
+    .reduce((s, p) => s - p.amount_cents, 0);
   const net = collected - refunded;
 
   return (
@@ -268,15 +296,29 @@ export function PaymentsPage() {
                   <TableCell className="capitalize text-muted-foreground">
                     {prettyMethod(p.method)}
                   </TableCell>
-                  <TableCell className="text-right font-medium tabular-nums">
+                  <TableCell
+                    className={cn(
+                      "text-right font-medium tabular-nums",
+                      p.amount_cents < 0 && "text-rose-600",
+                    )}
+                  >
                     {formatMoney(p.amount_cents, p.currency)}
                   </TableCell>
                   <TableCell>
-                    <StatusPill status={p.status} />
+                    {p.kind === "refund" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
+                        <RotateCcw className="h-3 w-3" />
+                        Refund
+                      </span>
+                    ) : (
+                      <StatusPill status={p.status} />
+                    )}
                   </TableCell>
                   {isAdmin && (
                     <TableCell className="text-right">
-                      {p.status === "completed" &&
+                      {p.kind !== "refund" &&
+                        p.status === "completed" &&
+                        (refundedByCharge.get(p.id) ?? 0) < p.amount_cents &&
                         (confirmingId === p.id ? (
                           <span className="inline-flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">
@@ -324,10 +366,4 @@ export function PaymentsPage() {
       </div>
     </div>
   );
-}
-
-function sumWhere(rows: Payment[], status: PaymentStatus): number {
-  return rows
-    .filter((p) => p.status === status)
-    .reduce((s, p) => s + p.amount_cents, 0);
 }

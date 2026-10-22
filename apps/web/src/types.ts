@@ -128,9 +128,12 @@ export type PaymentStatus = "pending" | "completed" | "refunded" | "failed";
 export interface Payment {
   id: string;
   reservation_id: string;
-  amount_cents: number;
+  amount_cents: number; // negative for refund rows
   currency: string;
   method: string;
+  provider?: string | null; // kushki | payphone | manual | mock
+  kind?: string; // 'charge' | 'refund'
+  parent_payment_id?: string | null; // the charge a refund belongs to
   status: PaymentStatus;
   reference: string | null;
   created_at: string;
