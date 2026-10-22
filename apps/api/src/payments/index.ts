@@ -14,6 +14,12 @@ export {
 
 const mock = new MockPaymentAdapter();
 
+// Single source of truth for sandbox vs. production. In test mode the Kushki
+// adapter hits the UAT host and the booking engine tokenises with
+// `inTestEnvironment: true`. Set PAYMENTS_TEST=true in dev/UAT; leave it unset
+// (or explicitly set a KUSHKI_BASE_URL) in production.
+export const paymentsTestMode = process.env.PAYMENTS_TEST === "true";
+
 // Per-hotel adapter cache. The signature includes the provider + key presence so
 // a settings change takes effect without a server restart.
 const cache = new Map<string, { sig: string; adapter: PaymentAdapter }>();

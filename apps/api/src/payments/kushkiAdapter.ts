@@ -26,6 +26,14 @@ import type {
 // a real Kushki UAT account before taking live payments. Scaffolded from the
 // public docs.
 const PROD_BASE = "https://api.kushkipagos.com";
+const UAT_BASE = "https://api-uat.kushkipagos.com";
+
+// Base host: an explicit KUSHKI_BASE_URL wins; otherwise PAYMENTS_TEST picks
+// UAT vs. production.
+function defaultBase(): string {
+  if (process.env.KUSHKI_BASE_URL) return process.env.KUSHKI_BASE_URL;
+  return process.env.PAYMENTS_TEST === "true" ? UAT_BASE : PROD_BASE;
+}
 
 const major = (cents: number) => Number((cents / 100).toFixed(2));
 
@@ -35,7 +43,7 @@ export class KushkiPaymentAdapter implements PaymentAdapter {
   constructor(
     private privateKey: string,
     private publicKey: string = "",
-    private baseUrl: string = process.env.KUSHKI_BASE_URL ?? PROD_BASE,
+    private baseUrl: string = defaultBase(),
   ) {}
 
   private headers() {

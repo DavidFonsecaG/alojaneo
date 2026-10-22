@@ -936,6 +936,7 @@ function CheckoutForm({
     publicKey: string | null;
     enabled: boolean;
     tokenRequired: boolean;
+    test: boolean;
   };
   onBack: () => void;
   onConfirmed: (c: BookingConfirmation) => void;
@@ -982,7 +983,7 @@ function CheckoutForm({
           publicKey: payment!.publicKey ?? "",
           amountCents: payNow,
           currency,
-          test: true, // TODO(sandbox): drive from the environment
+          test: payment?.test ?? true,
           card: {
             name: card.name,
             number: digits,

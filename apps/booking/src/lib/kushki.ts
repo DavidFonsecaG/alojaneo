@@ -11,7 +11,7 @@ const SDK_URL = "https://cdn.kushkipagos.com/kushki.min.js";
 interface KushkiInstance {
   requestToken(
     opts: {
-      amount: number;
+      amount: string; // decimal major units as a string, e.g. "49.99"
       currency: string;
       card: {
         name: string;
@@ -75,7 +75,8 @@ export async function tokenizeCard(opts: {
     merchantId: opts.publicKey,
     inTestEnvironment: opts.test ?? true,
   });
-  const amount = Number((opts.amountCents / 100).toFixed(2));
+  // Kushki.js wants the amount as a decimal-major-unit string, e.g. "49.99".
+  const amount = (opts.amountCents / 100).toFixed(2);
 
   return new Promise<string>((resolve, reject) => {
     kushki.requestToken(

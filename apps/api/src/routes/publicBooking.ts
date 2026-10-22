@@ -1,7 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { sqlUnscoped, withTenant } from "../db.js";
-import { computeDepositCents, getPaymentAdapter } from "../payments/index.js";
+import {
+  computeDepositCents,
+  getPaymentAdapter,
+  paymentsTestMode,
+} from "../payments/index.js";
 import { settlePayment } from "../payments/settle.js";
 import {
   nightsBetween,
@@ -86,6 +90,8 @@ export async function publicBookingRoutes(app: FastifyInstance) {
         // True when the booking engine must collect a card + tokenise it.
         tokenRequired:
           paymentEnabled && tokenProviders.includes(hotel.payment_provider),
+        // Drives the SDK's inTestEnvironment flag (UAT vs. production).
+        test: paymentsTestMode,
       },
     };
   });

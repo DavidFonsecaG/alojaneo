@@ -19,6 +19,7 @@ export interface HotelInfo {
     publicKey: string | null;
     enabled: boolean;
     tokenRequired: boolean;
+    test: boolean; // SDK inTestEnvironment flag (UAT vs. production)
   };
 }
 
