@@ -20,6 +20,7 @@ import { Button, Card, Field, Input, Select, Spinner } from "../components/ui";
 import { DateRangePicker } from "../components/DateRangePicker";
 import { amenityLabel } from "../lib/amenities";
 import { ApiError } from "../lib/api";
+import { tokenizeCard } from "../lib/kushki";
 import {
   confirmPaymentRequest,
   depositCents,
@@ -381,6 +382,7 @@ export function BookingPage() {
                 total={total}
                 payNow={payNow}
                 currency={currency}
+                payment={hotel.data?.payment}
                 onBack={() => setStep("browse")}
                 onConfirmed={(c) => {
                   // A gateway that needs a hosted-checkout hop sends us a URL;
@@ -919,6 +921,7 @@ function CheckoutForm({
   total,
   payNow,
   currency,
+  payment,
   onBack,
   onConfirmed,
 }: {
@@ -928,6 +931,12 @@ function CheckoutForm({
   total: number;
   payNow: number;
   currency: string;
+  payment?: {
+    provider: string;
+    publicKey: string | null;
+    enabled: boolean;
+    tokenRequired: boolean;
+  };
   onBack: () => void;
   onConfirmed: (c: BookingConfirmation) => void;
 }) {
@@ -940,10 +949,16 @@ function CheckoutForm({
   const [error, setError] = useState<string | null>(null);
   const stayNights = nights(submitted.checkIn, submitted.checkOut);
 
+  // Collect a card only when the hotel's gateway needs a token AND there's a
+  // deposit to charge now.
+  const needsCard = !!payment?.tokenRequired && payNow > 0;
+  const [card, setCard] = useState({ name: "", number: "", exp: "", cvc: "" });
+  const [tokenizing, setTokenizing] = useState(false);
+
   const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
   const emailError = emailTouched && email.trim().length > 0 && !emailValid;
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     if (!firstName.trim() || !lastName.trim() || !emailValid) {
@@ -951,6 +966,39 @@ function CheckoutForm({
       setError("Please enter your name and a valid email.");
       return;
     }
+
+    // Tokenise the card client-side (the number never reaches our server).
+    let paymentToken: string | undefined;
+    if (needsCard) {
+      const [mm, yyRaw] = card.exp.split("/").map((s) => s.trim());
+      const digits = card.number.replace(/\s+/g, "");
+      if (!card.name.trim() || digits.length < 12 || !mm || !yyRaw || !card.cvc.trim()) {
+        setError("Please enter your card details.");
+        return;
+      }
+      try {
+        setTokenizing(true);
+        paymentToken = await tokenizeCard({
+          publicKey: payment!.publicKey ?? "",
+          amountCents: payNow,
+          currency,
+          test: true, // TODO(sandbox): drive from the environment
+          card: {
+            name: card.name,
+            number: digits,
+            expiryMonth: mm.padStart(2, "0"),
+            expiryYear: yyRaw.length === 4 ? yyRaw.slice(2) : yyRaw,
+            cvc: card.cvc,
+          },
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Card couldn't be processed.");
+        return;
+      } finally {
+        setTokenizing(false);
+      }
+    }
+
     create.mutate(
       {
         guest: {
@@ -965,6 +1013,7 @@ function CheckoutForm({
         })),
         checkIn: submitted.checkIn,
         checkOut: submitted.checkOut,
+        paymentToken,
       },
       {
         onSuccess: onConfirmed,
@@ -1073,6 +1122,61 @@ function CheckoutForm({
           />
         </Field>
 
+        {needsCard && (
+          <div className="space-y-3 border-t border-border pt-3">
+            <div className="flex items-center gap-1.5 text-sm font-medium">
+              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+              Card details
+            </div>
+            <Field label="Cardholder name" htmlFor="cc-name">
+              <Input
+                id="cc-name"
+                autoComplete="cc-name"
+                value={card.name}
+                onChange={(e) => setCard((c) => ({ ...c, name: e.target.value }))}
+                placeholder="Name on card"
+              />
+            </Field>
+            <Field label="Card number" htmlFor="cc-num">
+              <Input
+                id="cc-num"
+                inputMode="numeric"
+                autoComplete="cc-number"
+                value={card.number}
+                onChange={(e) =>
+                  setCard((c) => ({ ...c, number: e.target.value }))
+                }
+                placeholder="1234 5678 9012 3456"
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Expiry (MM/YY)" htmlFor="cc-exp">
+                <Input
+                  id="cc-exp"
+                  autoComplete="cc-exp"
+                  value={card.exp}
+                  onChange={(e) =>
+                    setCard((c) => ({ ...c, exp: e.target.value }))
+                  }
+                  placeholder="MM/YY"
+                />
+              </Field>
+              <Field label="CVC" htmlFor="cc-cvc">
+                <Input
+                  id="cc-cvc"
+                  inputMode="numeric"
+                  autoComplete="cc-csc"
+                  value={card.cvc}
+                  onChange={(e) =>
+                    setCard((c) => ({ ...c, cvc: e.target.value }))
+                  }
+                  placeholder="123"
+                />
+              </Field>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2 border-t border-border pt-3">
           <div className="flex items-baseline justify-between">
             <span className="text-sm text-muted-foreground">
@@ -1110,12 +1214,14 @@ function CheckoutForm({
           type="submit"
           size="lg"
           className="w-full"
-          disabled={create.isPending}
+          disabled={create.isPending || tokenizing}
         >
-          {create.isPending && <Spinner />}
-          {payNow > 0
-            ? `Pay ${formatMoney(payNow, currency)} & confirm`
-            : "Confirm booking"}
+          {(create.isPending || tokenizing) && <Spinner />}
+          {tokenizing
+            ? "Processing card…"
+            : payNow > 0
+              ? `Pay ${formatMoney(payNow, currency)} & confirm`
+              : "Confirm booking"}
         </Button>
 
         {payNow > 0 && (

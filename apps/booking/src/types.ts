@@ -12,6 +12,14 @@ export interface HotelInfo {
   accentColor: string | null;
   // Up-front deposit policy, so checkout can show what's charged now.
   deposit: { type: string | null; percentage: number | null };
+  // Payment gateway (public bits only). tokenRequired = collect a card and
+  // tokenise it client-side before booking (Kushki embedded flow).
+  payment: {
+    provider: string;
+    publicKey: string | null;
+    enabled: boolean;
+    tokenRequired: boolean;
+  };
 }
 
 // One entry of GET /public/:hotelSlug/availability
@@ -56,6 +64,8 @@ export interface BookingRequest {
   rooms: { roomTypeId: string; ratePlanId: string }[];
   checkIn: string;
   checkOut: string;
+  // Card token from the gateway SDK (Kushki), when the hotel requires one.
+  paymentToken?: string;
 }
 
 export interface BookingPayment {

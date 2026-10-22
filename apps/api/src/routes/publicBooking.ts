@@ -36,6 +36,9 @@ const bookingBodySchema = z.object({
     .min(1),
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "checkIn must be YYYY-MM-DD"),
   checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "checkOut must be YYYY-MM-DD"),
+  // Card token minted client-side by the gateway SDK (Kushki). Optional: the
+  // mock/redirect gateways don't use it.
+  paymentToken: z.string().optional(),
 });
 
 export async function publicBookingRoutes(app: FastifyInstance) {
@@ -49,7 +52,8 @@ export async function publicBookingRoutes(app: FastifyInstance) {
 
     const [hotel] = await sqlUnscoped`
       select name, slug, currency, banner_url, banner_position, accent_color,
-             deposit_policy_type, deposit_percentage
+             deposit_policy_type, deposit_percentage,
+             payment_provider, payment_public_key, payment_enabled
       from hotels
       where slug = ${hotelSlug}
     `;
@@ -57,6 +61,11 @@ export async function publicBookingRoutes(app: FastifyInstance) {
     if (!hotel) {
       return reply.code(404).send({ error: "Hotel not found" });
     }
+
+    // Only token gateways need a client-side SDK + card fields; the public key
+    // is safe to publish. The private key / webhook token never leave the API.
+    const tokenProviders = ["kushki"];
+    const paymentEnabled = !!hotel.payment_enabled;
 
     return {
       name: hotel.name,
@@ -69,6 +78,14 @@ export async function publicBookingRoutes(app: FastifyInstance) {
       deposit: {
         type: hotel.deposit_policy_type,
         percentage: hotel.deposit_percentage,
+      },
+      payment: {
+        provider: hotel.payment_provider ?? "mock",
+        publicKey: hotel.payment_public_key ?? null,
+        enabled: paymentEnabled,
+        // True when the booking engine must collect a card + tokenise it.
+        tokenRequired:
+          paymentEnabled && tokenProviders.includes(hotel.payment_provider),
       },
     };
   });
@@ -393,6 +410,7 @@ export async function publicBookingRoutes(app: FastifyInstance) {
         description: `Booking ${result.bookingRef} — ${hotel.name}`,
         customerEmail: result.guest.email ?? undefined,
         returnUrl,
+        paymentToken: body.paymentToken,
       });
 
       // Record the attempt with the new lifecycle columns: `method` is how
