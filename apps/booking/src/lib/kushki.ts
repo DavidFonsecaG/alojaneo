@@ -6,7 +6,11 @@
 // TODO(sandbox): verify the CDN URL, the global shape, and the requestToken
 // signature against a real Kushki account. Scaffolded from the public docs.
 
-const SDK_URL = "https://cdn.kushkipagos.com/kushki.min.js";
+// Kushki's CDN by default. Overridable (VITE_KUSHKI_SDK_URL) so the script can
+// be self-hosted behind a strict CSP, or pointed at a local UAT stub in dev.
+const SDK_URL =
+  import.meta.env.VITE_KUSHKI_SDK_URL ??
+  "https://cdn.kushkipagos.com/kushki.min.js";
 
 interface KushkiInstance {
   requestToken(
@@ -29,9 +33,12 @@ interface KushkiInstance {
     }) => void,
   ): void;
 }
-type KushkiGlobal = {
-  Kushki: new (o: { merchantId: string; inTestEnvironment: boolean }) => KushkiInstance;
-};
+// Kushki.js exposes the constructor as `window.Kushki` itself — you call
+// `new Kushki({ merchantId, inTestEnvironment })` directly.
+type KushkiConstructor = new (o: {
+  merchantId: string;
+  inTestEnvironment: boolean;
+}) => KushkiInstance;
 
 let scriptPromise: Promise<void> | null = null;
 
@@ -68,10 +75,10 @@ export async function tokenizeCard(opts: {
   card: CardInput;
 }): Promise<string> {
   await loadSdk();
-  const g = (window as unknown as { Kushki?: KushkiGlobal }).Kushki;
-  if (!g) throw new Error("Payment library unavailable.");
+  const Ctor = (window as unknown as { Kushki?: KushkiConstructor }).Kushki;
+  if (!Ctor) throw new Error("Payment library unavailable.");
 
-  const kushki = new g.Kushki({
+  const kushki = new Ctor({
     merchantId: opts.publicKey,
     inTestEnvironment: opts.test ?? true,
   });
