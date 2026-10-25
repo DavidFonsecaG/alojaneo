@@ -348,10 +348,11 @@ export function BookingPage() {
                 </Button>
               </Card>
             ) : (
-              (availability.data ?? []).map((item) => (
+              (availability.data ?? []).map((item, i) => (
                 <RoomTypeCard
                   key={item.roomType.id}
                   item={item}
+                  index={i}
                   nights={stayNights}
                   lines={cart.filter(
                     (l) => l.item.roomType.id === item.roomType.id,
@@ -397,7 +398,7 @@ export function BookingPage() {
           {/* Mobile sticky action bar — on small screens the summary rail is
               below the whole room list, so surface the total + CTA here. */}
           {!embed && step === "browse" && cart.length > 0 && (
-            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-4 py-3 shadow-[0_-4px_12px_rgba(16,24,40,0.08)] backdrop-blur lg:hidden">
+            <div className="animate-slide-up-in fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-4 py-3 shadow-[0_-4px_12px_rgba(16,24,40,0.08)] backdrop-blur lg:hidden">
               <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
                 <div className="leading-tight">
                   <div className="text-xs text-muted-foreground">
@@ -606,12 +607,14 @@ function RoomCardSkeleton() {
 
 function RoomTypeCard({
   item,
+  index,
   nights: stayNights,
   lines,
   onAdd,
   onRemoveOne,
 }: {
   item: AvailabilityItem;
+  index: number;
   nights: number;
   lines: CartLine[];
   onAdd: (ratePlan: AvailabilityRatePlan) => void;
@@ -621,7 +624,12 @@ function RoomTypeCard({
   const remaining = availableCount - lines.length;
 
   return (
-    <Card className="overflow-hidden">
+    <Card
+      className="animate-rise-in overflow-hidden"
+      // Short stagger so the results cascade in rather than snapping as a block;
+      // capped so a long list never feels slow.
+      style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
+    >
       <div className="grid gap-0 sm:grid-cols-[18rem_1fr]">
         <PhotoGallery photos={roomType.photos} alt={roomType.name} />
 
@@ -726,7 +734,7 @@ function RoomTypeCard({
                             type="button"
                             aria-label={`Remove one ${rp.name}`}
                             onClick={() => onRemoveOne(rp)}
-                            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition-colors hover:bg-muted"
+                            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition duration-150 ease-out hover:bg-muted active:scale-95"
                           >
                             <Minus className="h-4 w-4" />
                           </button>
@@ -738,7 +746,7 @@ function RoomTypeCard({
                             aria-label={`Add one ${rp.name}`}
                             disabled={remaining <= 0}
                             onClick={() => onAdd(rp)}
-                            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition duration-150 ease-out hover:bg-muted active:scale-95 disabled:opacity-40 disabled:active:scale-100"
                           >
                             <Plus className="h-4 w-4" />
                           </button>
@@ -1285,8 +1293,8 @@ function ConfirmationView({
 
   return (
     <div className="mx-auto max-w-md">
-      <Card className="p-8 text-center">
-        <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+      <Card className="animate-rise-in p-8 text-center">
+        <span className="animate-pop-in mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 [animation-delay:120ms]">
           <CheckCircle2 className="h-7 w-7" />
         </span>
         <h2 className="mt-4 text-2xl font-semibold tracking-tight">

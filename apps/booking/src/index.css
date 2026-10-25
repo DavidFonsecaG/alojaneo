@@ -27,6 +27,9 @@
     /* The scrollbar keeps this fixed neutral ink even when a hotel's accent
        color overrides --primary, so the chrome never takes on the brand hue. */
     --scrollbar-thumb: 0 0% 9%;
+    /* Strong ease-out for entrances — the built-in easings are too weak to
+       feel intentional. */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   }
 
   * {
@@ -64,6 +67,47 @@
   *::-webkit-scrollbar-track {
     background-color: hsl(var(--background));
   }
+}
+
+/* Entrances. Each runs once on mount (re-renders don't restart a CSS
+   animation), so these are safe on list items and the confirmation screen.
+   Nothing appears from scale(0) — real things never pop out of nothing. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes slide-up-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.animate-rise-in {
+  animation: rise-in 300ms var(--ease-out) both;
+}
+.animate-pop-in {
+  animation: pop-in 320ms var(--ease-out) both;
+}
+.animate-slide-up-in {
+  animation: slide-up-in 240ms var(--ease-out) both;
 }
 
 /* Respect the OS reduce-motion setting (kept outside @layer so it wins over

@@ -36,7 +36,9 @@ export const Button = forwardRef<
   <button
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none",
+      // `transition` (not `transition-all`) covers colors + transform so the
+      // press scale animates; active:scale gives instant tactile feedback.
+      "inline-flex items-center justify-center gap-2 rounded-full font-medium transition duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none",
       buttonVariants[variant],
       buttonSizes[size],
       className,
@@ -101,9 +103,11 @@ export function Field({
 export function Card({
   className,
   children,
+  style,
 }: {
   className?: string;
   children: ReactNode;
+  style?: React.CSSProperties;
 }) {
   return (
     <div
@@ -111,6 +115,7 @@ export function Card({
         "rounded-3xl border border-border bg-card shadow-sm",
         className,
       )}
+      style={style}
     >
       {children}
     </div>
