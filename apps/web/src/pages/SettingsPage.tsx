@@ -87,7 +87,7 @@ export function SettingsPage() {
                 >
                   {t.label}
                   {tab === t.id && (
-                    <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-neutral-900" />
+                    <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />
                   )}
                 </button>
               ))}
@@ -292,7 +292,7 @@ function BrandingSettings() {
                     value={position}
                     onChange={(e) => setPosition(Number(e.target.value))}
                     aria-label="Banner vertical position"
-                    className="w-full accent-neutral-900"
+                    className="w-full accent-primary"
                   />
                   <p className="text-xs text-muted-foreground">
                     Drag to choose which part of the image shows when it's

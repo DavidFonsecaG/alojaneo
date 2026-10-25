@@ -96,7 +96,7 @@ export function UsersSettings() {
                       className={cn(
                         "rounded-md px-2 py-0.5 text-xs font-medium capitalize",
                         m.role === "admin"
-                          ? "bg-neutral-900 text-white"
+                          ? "bg-primary text-white"
                           : "bg-muted text-muted-foreground",
                       )}
                     >
@@ -200,7 +200,7 @@ function PermissionEditor({
                     type="checkbox"
                     checked={on}
                     onChange={(e) => onToggle(mod.key, a.key, e.target.checked)}
-                    className="h-4 w-4 accent-neutral-900"
+                    className="h-4 w-4 accent-primary"
                   />
                   {a.label}
                 </label>

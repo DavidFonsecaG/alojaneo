@@ -93,18 +93,18 @@ export function DepositSettings() {
                     className={cn(
                       "flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors",
                       active
-                        ? "border-neutral-900 bg-neutral-900/[0.03]"
+                        ? "border-primary bg-primary/[0.03]"
                         : "border-border hover:bg-accent",
                     )}
                   >
                     <span
                       className={cn(
                         "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                        active ? "border-neutral-900" : "border-muted-foreground/40",
+                        active ? "border-primary" : "border-muted-foreground/40",
                       )}
                     >
                       {active && (
-                        <span className="h-2 w-2 rounded-full bg-neutral-900" />
+                        <span className="h-2 w-2 rounded-full bg-primary" />
                       )}
                     </span>
                     <span className="min-w-0">
