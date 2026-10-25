@@ -1,6 +1,15 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ExternalLink, ImageIcon, Palette, Trash2, Upload } from "lucide-react";
+import {
+  Check,
+  Code2,
+  Copy,
+  ExternalLink,
+  ImageIcon,
+  Palette,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { PageHeader } from "../components/Layout";
 import { Button } from "../components/ui/button";
 import { Input, Label } from "../components/ui/input";
@@ -100,7 +109,12 @@ export function SettingsPage() {
               SCROLL_TABS.has(tab) ? "flex flex-col" : "overflow-y-auto",
             )}
           >
-            {tab === "booking" && <BrandingSettings />}
+            {tab === "booking" && (
+              <div className="space-y-4">
+                <BrandingSettings />
+                <EmbedSettings />
+              </div>
+            )}
             {tab === "deposits" && <DepositSettings />}
             {tab === "payments" && <PaymentSettings />}
             {tab === "rooms" && <RoomsSetup />}
@@ -387,6 +401,118 @@ function BrandingSettings() {
             )}
           </>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Copy-paste snippet that puts the booking engine on the hotel's own site, via
+// the embed loader (apps/booking/public/embed.js). Inline drops the engine into
+// the page; button opens it in a pop-up.
+function EmbedSettings() {
+  const profile = useHotelProfile();
+  const slug = profile.data?.slug;
+  const accent = profile.data?.accent_color;
+  const [mode, setMode] = useState<"inline" | "button">("inline");
+  const [copied, setCopied] = useState(false);
+
+  const snippet = useMemo(() => {
+    if (!slug) return "";
+    const lines = [
+      `<script src="${BOOKING_URL}/embed.js"`,
+      `        data-hotel="${slug}"`,
+      `        data-mode="${mode}"`,
+    ];
+    if (mode === "button") {
+      lines.push(`        data-button-text="Book now"`);
+      if (accent) lines.push(`        data-button-color="${accent}"`);
+    }
+    return lines.join("\n") + "></script>";
+  }, [slug, mode, accent]);
+
+  function copy() {
+    navigator.clipboard
+      .writeText(snippet)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {});
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Code2 className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-base">Embed on your website</CardTitle>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Add the booking engine to your own site with one line — paste it where
+          you want it to appear. No developer needed beyond editing your page.
+        </p>
+
+        {/* Mode toggle */}
+        <div className="flex w-fit rounded-lg bg-muted p-0.5 text-sm">
+          {(["inline", "button"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={cn(
+                "rounded-md px-3 py-1 transition-colors",
+                mode === m
+                  ? "bg-card font-medium text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {m === "inline" ? "Inline" : "Pop-up button"}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {mode === "inline"
+            ? "The engine appears directly in your page and resizes to fit its content."
+            : "Shows a “Book now” button that opens the engine in a pop-up over your page."}
+        </p>
+
+        {/* Snippet */}
+        {slug ? (
+          <div className="relative">
+            <pre className="overflow-x-auto rounded-xl bg-primary px-4 py-3.5 pr-24 text-xs leading-relaxed text-primary-foreground/90">
+              <code>{snippet}</code>
+            </pre>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="absolute right-2 top-2 bg-card"
+              onClick={copy}
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-emerald-600" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+        ) : (
+          <Spinner />
+        )}
+
+        <a
+          href={`${BOOKING_URL}/embed-demo.html`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-ring hover:underline"
+        >
+          See a live example
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
       </CardContent>
     </Card>
   );
