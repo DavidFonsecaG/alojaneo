@@ -144,7 +144,7 @@ export function HousekeepingPage() {
             )}
           >
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <span className={cn("h-2 w-2 rounded-full", META[s].dot)} />
                 {META[s].label}
               </div>

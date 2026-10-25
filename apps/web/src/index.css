@@ -4,15 +4,17 @@
 
 @layer base {
   :root {
-    /* Neutral black / gray / white base. Violet is the single accent, applied
-       only through --primary (main CTA buttons, links, active nav, focus ring)
-       so it stays reserved for key moments. Status colours on the calendar and
+    /* Neutral gray / white canvas anchored by the Alojaneo brand navy, applied
+       through --primary (main CTA buttons, links, active nav) so the brand reads
+       on every key action instead of a generic near-black. Body text stays a
+       readable near-black (--foreground). Status colours on the calendar and
        rooms tiles are hardcoded semantic hues and intentionally not themed. */
     --background: 0 0% 98%;
     --foreground: 0 0% 9%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 9%;
-    --primary: 0 0% 9%;
+    /* Brand navy #15233F */
+    --primary: 220 50% 16%;
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 9%;

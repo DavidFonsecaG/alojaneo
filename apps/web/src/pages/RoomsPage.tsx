@@ -535,7 +535,7 @@ export function RoomsSetup() {
               card) so the scrollbar sits below it, not beside it. The
               scrollbar gutter is reserved on the body and matched with the
               header's right padding so the columns line up. */}
-          <div className="grid h-10 grid-cols-[5rem_minmax(8rem,1fr)_4rem_7rem_9rem_5.5rem] items-center gap-4 border-b border-border pl-4 pr-[22px] text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="grid h-10 grid-cols-[5rem_minmax(8rem,1fr)_4rem_7rem_9rem_5.5rem] items-center gap-4 border-b border-border pl-4 pr-[22px] text-xs font-medium text-muted-foreground">
             <div>Room</div>
             <div>Type</div>
             <div>Floor</div>
@@ -639,7 +639,7 @@ function StatCard({
   return (
     <div className="flex items-center justify-between rounded-3xl bg-card p-4 shadow-card">
       <div>
-        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="text-xs font-medium text-muted-foreground">
           {label}
         </div>
         <div

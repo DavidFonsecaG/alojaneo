@@ -87,31 +87,31 @@ export function DashboardPage() {
           label="Occupancy"
           value={loading ? "–" : `${pct}%`}
           icon={<Gauge className="h-5 w-5" />}
-          tint="bg-primary/10 text-primary"
+          tint="bg-primary text-primary-foreground"
         />
         <Kpi
           label="In-house"
           value={num(occupied)}
           icon={<BedDouble className="h-5 w-5" />}
-          tint="bg-sky-100 text-sky-600"
+          tint="bg-muted text-muted-foreground"
         />
         <Kpi
           label="Available"
           value={num(available)}
           icon={<DoorOpen className="h-5 w-5" />}
-          tint="bg-emerald-100 text-emerald-600"
+          tint="bg-muted text-muted-foreground"
         />
         <Kpi
           label="Arrivals today"
           value={num(arrivals)}
           icon={<LogIn className="h-5 w-5" />}
-          tint="bg-violet-100 text-violet-600"
+          tint="bg-muted text-muted-foreground"
         />
         <Kpi
           label="Departures today"
           value={num(departures)}
           icon={<LogOut className="h-5 w-5" />}
-          tint="bg-rose-100 text-rose-600"
+          tint="bg-muted text-muted-foreground"
         />
         <Kpi
           label="Revenue today"
@@ -121,7 +121,7 @@ export function DashboardPage() {
               : formatMoney(revenue.cents, revenue.currency)
           }
           icon={<DollarSign className="h-5 w-5" />}
-          tint="bg-amber-100 text-amber-600"
+          tint="bg-muted text-muted-foreground"
         />
       </div>
 
@@ -149,10 +149,12 @@ function Kpi({
   return (
     <div className="flex items-center justify-between rounded-3xl bg-card p-5 shadow-card">
       <div>
-        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="text-[0.8125rem] font-medium text-muted-foreground">
           {label}
         </div>
-        <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+        <div className="mt-1 text-[1.75rem] font-semibold leading-tight tabular-nums">
+          {value}
+        </div>
       </div>
       <span
         className={cn(
@@ -297,7 +299,7 @@ function ArrivingTodayCard({
         <div className="mt-2 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="text-left text-xs text-muted-foreground">
                 <th className="py-2 font-medium">Guest</th>
                 <th className="py-2 font-medium">Room</th>
                 <th className="py-2 font-medium">Type</th>

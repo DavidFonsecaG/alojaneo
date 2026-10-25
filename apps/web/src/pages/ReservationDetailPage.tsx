@@ -73,7 +73,7 @@ export function ReservationDetailPage() {
         description={`${data.booking_ref} · ${data.rooms.length} room${data.rooms.length === 1 ? "" : "s"} · ${totalNights} room-night${totalNights === 1 ? "" : "s"} · ${data.source.replace(/_/g, " ")}`}
         actions={
           <div className="text-right">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               Total
             </div>
             <div className="text-lg font-semibold">

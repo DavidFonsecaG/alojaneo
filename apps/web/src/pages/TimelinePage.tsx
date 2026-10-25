@@ -462,7 +462,7 @@ export function TimelinePage() {
                     {/* Group header */}
                     <div className="flex border-b border-border">
                       <div
-                        className="sticky left-0 z-10 shrink-0 border-r border-border bg-muted/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                        className="sticky left-0 z-10 shrink-0 border-r border-border bg-muted/60 px-3 py-1.5 text-xs font-semibold text-muted-foreground"
                         style={{ width: LEFT_W }}
                       >
                         {group.typeName}

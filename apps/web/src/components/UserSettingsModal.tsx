@@ -326,7 +326,7 @@ export function UserSettingsModal({
       >
         {/* Left rail */}
         <nav className="flex w-56 shrink-0 flex-col gap-1 border-r border-border bg-muted/40 p-3">
-          <p className="px-2 pb-1 pt-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="px-2 pb-1 pt-1.5 text-xs font-semibold text-muted-foreground">
             Settings
           </p>
           {NAV.map((item) => {
