@@ -364,8 +364,9 @@ export function BookingPage() {
             )}
           </div>
 
-          {/* Summary / checkout rail */}
-          <aside ref={checkoutRef} className="lg:sticky lg:top-6">
+          {/* Summary / checkout rail. Sticks below the sticky search bar
+              (~103px tall at top-3) so it never slides up behind it. */}
+          <aside ref={checkoutRef} className="lg:sticky lg:top-32">
             {step === "browse" ? (
               <CartSummary
                 cart={cart}
@@ -661,8 +662,10 @@ function RoomTypeCard({
           )}
 
           {roomType.amenities.length > 0 && (
+            // Cap to a handful so a room with many amenities doesn't wrap onto
+            // extra lines and make its card (and photo) taller than the rest.
             <ul className="mt-3 flex flex-wrap gap-1.5">
-              {roomType.amenities.map((a) => (
+              {roomType.amenities.slice(0, 3).map((a) => (
                 <li
                   key={a}
                   className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
@@ -670,6 +673,11 @@ function RoomTypeCard({
                   {amenityLabel(a)}
                 </li>
               ))}
+              {roomType.amenities.length > 3 && (
+                <li className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  +{roomType.amenities.length - 3} more
+                </li>
+              )}
             </ul>
           )}
 
@@ -779,7 +787,7 @@ function PhotoGallery({ photos, alt }: { photos: string[]; alt: string }) {
 
   if (photos.length === 0) {
     return (
-      <div className="flex min-h-[10rem] items-center justify-center bg-muted text-muted-foreground">
+      <div className="flex min-h-[10rem] items-center justify-center bg-muted text-muted-foreground sm:h-full">
         <ImageOff className="h-8 w-8" />
       </div>
     );
@@ -790,12 +798,15 @@ function PhotoGallery({ photos, alt }: { photos: string[]; alt: string }) {
     setActive((i) => (i + dir + photos.length) % photos.length);
 
   return (
-    <div className="flex flex-col gap-1.5 bg-muted p-1.5">
-      <div className="group relative">
+    <div className="flex flex-col gap-1.5 bg-muted p-1.5 sm:h-full">
+      {/* The frame fills the card height (flex-1); the photo is absolutely
+          positioned to cover it, so a tall/portrait source image is cropped to
+          fit instead of stretching the card taller than its neighbours. */}
+      <div className="group relative sm:min-h-0 sm:flex-1 sm:overflow-hidden sm:rounded-2xl">
         <img
           src={photos[active]}
           alt={many ? `${alt} — photo ${active + 1} of ${photos.length}` : alt}
-          className="h-40 w-full rounded-2xl object-cover sm:h-full sm:min-h-[10rem]"
+          className="h-40 w-full rounded-2xl object-cover sm:absolute sm:inset-0 sm:h-full sm:w-full sm:rounded-none"
         />
         {many && (
           <>
