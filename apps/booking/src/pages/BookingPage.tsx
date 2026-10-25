@@ -631,7 +631,10 @@ function RoomTypeCard({
       // capped so a long list never feels slow.
       style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
     >
-      <div className="grid gap-0 sm:grid-cols-[18rem_1fr]">
+      {/* min-height on the grid (not the Card) so both columns stretch to it —
+          gives the card and the photo that fills it a touch more presence; the
+          content spacer absorbs the slack. */}
+      <div className="grid gap-0 sm:min-h-[22rem] sm:grid-cols-[18rem_1fr]">
         <PhotoGallery photos={roomType.photos} alt={roomType.name} />
 
         <div className="flex flex-col p-5">
