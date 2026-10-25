@@ -127,7 +127,7 @@ export function ReservationsPage() {
                   className={cn(
                     "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
                     active
-                      ? "border-transparent bg-neutral-900 text-white"
+                      ? "border-transparent bg-primary text-primary-foreground"
                       : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
@@ -184,7 +184,7 @@ export function ReservationsPage() {
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground/70">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                         {initials(r.guest_first_name, r.guest_last_name)}
                       </span>
                       <div className="min-w-0">

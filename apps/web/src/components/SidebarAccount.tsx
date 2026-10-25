@@ -57,7 +57,7 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
             open && "bg-neutral-200",
           )}
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
             {avatar}
           </span>
           {!collapsed && (

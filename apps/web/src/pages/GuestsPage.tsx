@@ -128,7 +128,7 @@ export function GuestsPage() {
                   <TableRow key={g.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground/70">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                           {initials(g.first_name, g.last_name)}
                         </span>
                         <span className="font-medium">

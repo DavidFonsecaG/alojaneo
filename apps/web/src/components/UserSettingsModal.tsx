@@ -96,7 +96,7 @@ function AccountSection() {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-4">
-        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-lg font-semibold text-white">
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-primary-foreground">
           {email ? initials(email) : "··"}
         </span>
         <div className="min-w-0">

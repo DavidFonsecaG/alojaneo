@@ -243,7 +243,7 @@ export function RoomsPage() {
                 className={cn(
                   "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
                   active
-                    ? "border-transparent bg-neutral-900 text-white"
+                    ? "border-transparent bg-primary text-primary-foreground"
                     : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
@@ -454,7 +454,7 @@ function RoomActionsDialog({
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm capitalize transition-colors",
                   hkStatus === s
-                    ? "border-transparent bg-neutral-900 text-white"
+                    ? "border-transparent bg-primary text-primary-foreground"
                     : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
@@ -765,7 +765,7 @@ function RoomTypesDialog({
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
                   selected === t.id
-                    ? "border-transparent bg-neutral-900 text-white"
+                    ? "border-transparent bg-primary text-primary-foreground"
                     : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
@@ -778,7 +778,7 @@ function RoomTypesDialog({
               className={cn(
                 "flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-medium transition-colors",
                 selected === "new"
-                  ? "border-transparent bg-neutral-900 text-white"
+                  ? "border-transparent bg-primary text-primary-foreground"
                   : "border-dashed border-border text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
