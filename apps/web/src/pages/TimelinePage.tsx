@@ -42,7 +42,7 @@ const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Bar colour per stay status. Cancelled / no-show never reach the client —
 // the timeline endpoint filters them out (the room is released).
 const BAR: Record<string, string> = {
-  confirmed: "bg-sky-400 hover:bg-sky-500",
+  confirmed: "bg-blue-500 hover:bg-blue-600",
   checked_in: "bg-teal-400 hover:bg-teal-500",
   checked_out: "bg-neutral-400 hover:bg-neutral-500",
 };
@@ -66,7 +66,7 @@ const STATUS_FILTERS: { key: string; label: string; dot: string }[] = [
 // What the reservation-bar colours mean — shown as a legend in the grid's
 // top-left corner (distinct from the room-status pills above).
 const RES_STATUS_LEGEND: { color: string; label: string }[] = [
-  { color: "bg-sky-400", label: "Confirmed" },
+  { color: "bg-blue-500", label: "Confirmed" },
   { color: "bg-teal-400", label: "Checked in" },
   { color: "bg-neutral-400", label: "Checked out" },
 ];
@@ -110,7 +110,7 @@ function ColumnTints({
             key={i}
             className={cn(
               "pointer-events-none absolute inset-y-0",
-              isToday ? "bg-sky-100/40" : "bg-muted/40",
+              isToday ? "bg-blue-100/40" : "bg-muted/40",
             )}
             style={{ left: i * dayW, width: dayW }}
           />
@@ -424,7 +424,7 @@ export function TimelinePage() {
                         className={cn(
                           "flex shrink-0 flex-col justify-center whitespace-nowrap border-r border-border px-2 text-left text-xs leading-tight",
                           weekend && "bg-muted/40",
-                          isToday && "bg-sky-100/40",
+                          isToday && "bg-blue-100/40",
                         )}
                         style={{ width: dayW }}
                       >
@@ -449,7 +449,7 @@ export function TimelinePage() {
                               day: "numeric",
                             })}
                           </div>
-                          {isToday && <div className="w-1.5 h-1.5 rounded-full bg-sky-400"></div>}
+                          {isToday && <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>}
                         </div>
                       </div>
                     );

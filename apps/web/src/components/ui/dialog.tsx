@@ -79,7 +79,7 @@ export function Dialog({
         <div
           className={cn(
             "flex shrink-0 items-start justify-between border-b border-border px-5 py-4",
-            headerAccent && "border-b-0 bg-neutral-900 text-white",
+            headerAccent && "border-b-0 bg-primary text-primary-foreground",
           )}
         >
           <div>
