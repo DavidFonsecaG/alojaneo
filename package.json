@@ -1,6 +1,7 @@
 {
   "name": "alojaneo",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev:api": "pnpm --filter @alojaneo/api dev",
     "dev:web": "pnpm --filter @alojaneo/web dev",

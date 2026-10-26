@@ -1,0 +1,83 @@
+# Render Blueprint — Alojaneo API + Postgres, co-located in one region.
+# Create via Render → New + → Blueprint, pointed at this repo.
+#
+# RLS / tenant isolation: the app connects as the NON-OWNER role `app_user`, so
+# Row-Level Security is enforced (a table owner would bypass it). Render's
+# database is owned by its own generated role — keep it that way; `app_user` is
+# created by the migrations as a separate role. First-deploy steps are at the
+# bottom of this file.
+
+databases:
+  - name: alojaneo-db
+    # Free Postgres is DELETED after 90 days. Change to basic-256mb (or larger)
+    # before then to keep your data.
+    plan: free
+    databaseName: alojaneo
+    region: ohio
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: alojaneo-api
+    runtime: node
+    # Free web services sleep after ~15 min idle (cold start on the next
+    # request). A free uptime pinger on /health keeps it warm; upgrade to
+    # starter for always-on.
+    plan: free
+    region: ohio # same region as the DB keeps the chatty API↔DB hops local
+    rootDir: . # pnpm workspace root
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter @alojaneo/api start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # DB endpoint from the managed database. The ROLE, though, is app_user
+      # (not the DB owner) — set its password below after running migrations.
+      - key: PGHOST
+        fromDatabase: { name: alojaneo-db, property: host }
+      - key: PGPORT
+        fromDatabase: { name: alojaneo-db, property: port }
+      - key: PGDATABASE
+        fromDatabase: { name: alojaneo-db, property: database }
+      - key: PGUSER
+        value: app_user
+      - key: PGPASSWORD
+        sync: false # set to the strong app_user password you create (see steps)
+      # Render's internal DB network doesn't require TLS, so PGSSLMODE is unset.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PAYMENTS_ENC_KEY
+        generateValue: true # generated once and kept — never rotate, or stored gateway keys can't be decrypted
+      - key: CORS_ORIGINS
+        value: https://app.alojaneo.com,https://book.alojaneo.com,https://admin.alojaneo.com
+      - key: RESEND_API_KEY
+        sync: false # paste your Resend key
+      - key: MAIL_FROM
+        value: Alojaneo <login@alojaneo.com>
+      - key: NODE_VERSION
+        value: "20"
+# ── First-deploy steps ──────────────────────────────────────────────────────
+# 1. Create the Blueprint. Render provisions the DB and the API (the API will
+#    stay unhealthy until the DB is migrated and PGPASSWORD is set — expected).
+# 2. From the alojaneo-db page, copy the EXTERNAL connection string and, as the
+#    database OWNER, run the migrations in order:
+#       psql "<external conn string>" \
+#         -f packages/db/src/migrations/0001_init.sql \
+#         -f packages/db/src/migrations/0002_extend_schema.sql \
+#         -f packages/db/src/migrations/0003_enhance_schema.sql \
+#         -f packages/db/src/migrations/0004_prevent_double_booking.sql \
+#         -f packages/db/src/migrations/0005_booking_ref.sql \
+#         -f packages/db/src/migrations/0006_room_type_media.sql \
+#         -f packages/db/src/migrations/0007_hotel_branding.sql \
+#         -f packages/db/src/migrations/0008_hotel_banner_position.sql \
+#         -f packages/db/src/migrations/0009_login_codes.sql \
+#         -f packages/db/src/migrations/0010_payments_lifecycle.sql
+#    (0001 creates the app_user role with a dev password and the RLS policies.)
+# 3. Give app_user a strong password and point the API at it:
+#       psql "<external conn string>" -c "alter role app_user password '<STRONG>';"
+#    Then set PGPASSWORD=<STRONG> in the alojaneo-api environment.
+# 4. Set RESEND_API_KEY (and verify your sending domain in Resend for real guest
+#    email; until then MAIL_FROM only delivers to your own address).
+# 5. Trigger a redeploy of alojaneo-api; /health should go green.
+# 6. Add a free uptime ping (e.g. cron-job.org) hitting
+#    https://api.alojaneo.com/health every ~10 min to avoid cold starts.

@@ -9,6 +9,9 @@ const sql = postgres({
   username: process.env.PGUSER ?? "app_user",
   password: process.env.PGPASSWORD ?? "app_user_pw",
   max: 10, // a real connection pool — this is the part that needed proving
+  // Render's internal network doesn't need TLS; set PGSSLMODE=require for an
+  // external managed Postgres (Neon, Supabase, RDS, …).
+  ssl: process.env.PGSSLMODE === "require" ? "require" : undefined,
 });
 
 /**
