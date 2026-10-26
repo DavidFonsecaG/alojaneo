@@ -637,18 +637,18 @@ function StatCard({
   valueClass?: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-3xl bg-card p-4 shadow-card">
+    <div className="flex items-center justify-between rounded-3xl bg-card p-5 shadow-card">
       <div>
-        <div className="text-xs font-medium text-muted-foreground">
+        <div className="text-[0.8125rem] font-medium text-muted-foreground">
           {label}
         </div>
         <div
           className={cn(
-            "mt-1 text-2xl font-semibold tabular-nums",
+            "mt-1 text-[1.75rem] font-semibold leading-tight tabular-nums",
             valueClass,
           )}
         >
-          {String(value).padStart(2, "0")}
+          {value}
         </div>
       </div>
       <div
