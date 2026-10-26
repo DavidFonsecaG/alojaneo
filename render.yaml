@@ -59,15 +59,14 @@ services:
 # ── First-deploy steps ──────────────────────────────────────────────────────
 # 1. Create the Blueprint. Render provisions the DB and the API (the API will
 #    stay unhealthy until the DB is migrated and PGPASSWORD is set — expected).
-# 2. From the alojaneo-db page, copy the EXTERNAL connection string and run every
-#    migration in one command, as the database OWNER (it creates roles + tables):
+# 2. From the alojaneo-db page, copy the EXTERNAL connection string. Pick a strong
+#    app_user password (e.g. `openssl rand -hex 24`) and run, as the DB owner (the
+#    external string connects as the owner):
 #       pnpm install --frozen-lockfile
-#       pnpm --filter @alojaneo/db migrate "<external connection string>"
-#    (Applies 0001–0010 in order and tracks them; 0001 creates the app_user role
-#    with a dev password and the RLS policies. Safe to re-run.)
-# 3. Give app_user a strong password and point the API at it:
-#       psql "<external conn string>" -c "alter role app_user password '<STRONG>';"
-#    Then set PGPASSWORD=<STRONG> in the alojaneo-api environment.
+#       APP_USER_PASSWORD='<STRONG>' pnpm --filter @alojaneo/db migrate "<external connection string>"
+#    Applies 0001–0010 (0001 creates app_user + the RLS policies) and sets
+#    app_user's password to <STRONG>. Safe to re-run.
+# 3. In the alojaneo-api environment, set PGPASSWORD to that same <STRONG> value.
 # 4. Set RESEND_API_KEY (and verify your sending domain in Resend for real guest
 #    email; until then MAIL_FROM only delivers to your own address).
 # 5. Trigger a redeploy of alojaneo-api; /health should go green.

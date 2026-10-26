@@ -18,7 +18,8 @@ import postgres from "postgres";
 //   pnpm --filter @alojaneo/db migrate                         # PG* env vars (local)
 //
 // Run as the database OWNER (it needs to create roles/tables), not app_user.
-//   --list   print the migrations in order and exit (no connection)
+//   --list                  print the migrations in order and exit (no connection)
+//   APP_USER_PASSWORD=...    after migrating, set app_user's password (production)
 
 const args = process.argv.slice(2);
 const listOnly = args.includes("--list");
@@ -77,6 +78,18 @@ async function main() {
       ? `\nApplied ${applied} migration(s).`
       : "\nUp to date — nothing to apply.",
   );
+
+  // 0001 creates app_user with a dev password. In production set a strong one by
+  // passing APP_USER_PASSWORD — folded in here so no separate psql step is
+  // needed. ALTER ROLE takes a string literal (not a bind param), so the value
+  // is quoted/escaped; use a generated token (no exotic characters).
+  const appPw = process.env.APP_USER_PASSWORD;
+  if (appPw) {
+    const literal = "'" + appPw.replace(/'/g, "''") + "'";
+    await sql.unsafe(`alter role app_user password ${literal}`);
+    console.log("Set app_user password from APP_USER_PASSWORD.");
+  }
+
   await sql.end();
 }
 
