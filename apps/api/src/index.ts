@@ -92,7 +92,10 @@ export function buildApp() {
 
 if (process.env.NODE_ENV !== "test") {
   const app = buildApp();
-  app.listen({ port: 3001, host: "0.0.0.0" }).then(() => {
-    console.log("API listening on http://localhost:3001");
+  // Hosts (Render, Fly, Railway, …) inject PORT and expect the app to bind it
+  // on 0.0.0.0; fall back to 3001 for local dev.
+  const port = Number(process.env.PORT ?? 3001);
+  app.listen({ port, host: "0.0.0.0" }).then(() => {
+    console.log(`API listening on :${port}`);
   });
 }
