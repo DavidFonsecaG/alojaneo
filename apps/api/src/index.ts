@@ -1,5 +1,6 @@
 import "./env.js"; // load .env before anything reads process.env
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import { ZodError } from "zod";
 import { authRoutes } from "./routes/auth.js";
 import { roomTypeRoutes } from "./routes/roomTypes.js";
@@ -20,6 +21,25 @@ import { platformRoutes } from "./routes/platform.js";
 
 export function buildApp() {
   const app = Fastify({ logger: false });
+
+  // CORS. In production set CORS_ORIGINS to a comma-separated allowlist of the
+  // front-end origins (e.g. https://app.alojaneo.com,https://book.alojaneo.com,
+  // https://admin.alojaneo.com). The embedded booking engine runs inside an
+  // iframe served from book.alojaneo.com, so its API calls carry that origin —
+  // the allowlist covers embeds too, no per-hotel-domain entries needed.
+  // Unset (local dev, where the Vite proxy makes calls same-origin) → reflect
+  // any origin. Server-to-server callers like gateway webhooks send no Origin
+  // and are unaffected.
+  const corsOrigins = (process.env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  app.register(cors, {
+    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86_400,
+  });
 
   // Zod validation failures are client errors, not 500s. (Errors that already
   // carry a statusCode — e.g. our 409 conflicts — pass through unchanged.)

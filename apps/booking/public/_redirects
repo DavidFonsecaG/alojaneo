@@ -1,0 +1,4 @@
+# Cloudflare Pages SPA fallback: serve index.html for client-side routes.
+# Real files are served first, so /embed.js, /embed-demo.html, /assets/* and the
+# icons resolve normally; /:hotelSlug and other app routes fall through here.
+/*    /index.html   200
