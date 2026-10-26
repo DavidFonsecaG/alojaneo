@@ -59,20 +59,12 @@ services:
 # ── First-deploy steps ──────────────────────────────────────────────────────
 # 1. Create the Blueprint. Render provisions the DB and the API (the API will
 #    stay unhealthy until the DB is migrated and PGPASSWORD is set — expected).
-# 2. From the alojaneo-db page, copy the EXTERNAL connection string and, as the
-#    database OWNER, run the migrations in order:
-#       psql "<external conn string>" \
-#         -f packages/db/src/migrations/0001_init.sql \
-#         -f packages/db/src/migrations/0002_extend_schema.sql \
-#         -f packages/db/src/migrations/0003_enhance_schema.sql \
-#         -f packages/db/src/migrations/0004_prevent_double_booking.sql \
-#         -f packages/db/src/migrations/0005_booking_ref.sql \
-#         -f packages/db/src/migrations/0006_room_type_media.sql \
-#         -f packages/db/src/migrations/0007_hotel_branding.sql \
-#         -f packages/db/src/migrations/0008_hotel_banner_position.sql \
-#         -f packages/db/src/migrations/0009_login_codes.sql \
-#         -f packages/db/src/migrations/0010_payments_lifecycle.sql
-#    (0001 creates the app_user role with a dev password and the RLS policies.)
+# 2. From the alojaneo-db page, copy the EXTERNAL connection string and run every
+#    migration in one command, as the database OWNER (it creates roles + tables):
+#       pnpm install --frozen-lockfile
+#       pnpm --filter @alojaneo/db migrate "<external connection string>"
+#    (Applies 0001–0010 in order and tracks them; 0001 creates the app_user role
+#    with a dev password and the RLS policies. Safe to re-run.)
 # 3. Give app_user a strong password and point the API at it:
 #       psql "<external conn string>" -c "alter role app_user password '<STRONG>';"
 #    Then set PGPASSWORD=<STRONG> in the alojaneo-api environment.
